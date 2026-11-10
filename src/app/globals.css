@@ -29,10 +29,10 @@
   --color-map-land: #eeeeea;
   --color-map-water: #d9e2e8;
 
-  --font-display: var(--font-audiowide);
-  --font-signature: var(--font-monoton);
-  --font-body: var(--font-rajdhani);
-  --font-data: var(--font-share-tech-mono);
+  --font-display: var(--font-bricolage);
+  --font-signature: var(--font-bricolage);
+  --font-body: var(--font-figtree);
+  --font-data: var(--font-figtree);
 
   /* Display + Title fluidly shrink on narrow phones and reach their full
      size by large-phone / small-tablet width (~600px). The
@@ -72,9 +72,9 @@
      to the map overlay windows (HUD button, search/legend windows,
      mini-card, cluster popover) rather than redefining --radius-* or
      the app's normal shadow usage globally. */
-  --radius-pixel: 0.2rem;
-  --shadow-pixel: 3px 3px 0 rgba(23, 19, 16, 0.35);
-  --shadow-pixel-sm: 2px 2px 0 rgba(23, 19, 16, 0.3);
+  --radius-pixel: 0.5rem;
+  --shadow-pixel: 0 1px 3px rgba(28, 25, 23, 0.1);
+  --shadow-pixel-sm: 0 1px 2px rgba(28, 25, 23, 0.08);
 
   --duration-micro: 100ms;
   --duration-short: 200ms;
@@ -141,11 +141,11 @@
   --color-map-land: #eeeeea;
   --color-map-water: #d9e2e8;
 
-  --font-display: var(--font-audiowide);
-  --font-signature: var(--font-monoton);
-  --font-body: var(--font-rajdhani);
-  --font-data: var(--font-share-tech-mono);
-  --font-mono: var(--font-share-tech-mono);
+  --font-display: var(--font-bricolage);
+  --font-signature: var(--font-bricolage);
+  --font-body: var(--font-figtree);
+  --font-data: var(--font-figtree);
+  --font-mono: var(--font-figtree);
 
   /* Display + Title fluidly shrink on narrow phones and reach their full
      size by large-phone / small-tablet width (~600px). The
@@ -308,7 +308,7 @@ button {
   padding: 0 var(--spacing-md);
   background: var(--color-marquee);
   border-bottom: 3px solid var(--color-cherry);
-  box-shadow: 0 2px 24px rgba(157, 34, 53, 0.45);
+  box-shadow: none;
 }
 
 .site-header nav {
@@ -455,20 +455,16 @@ button {
   position: relative;
   display: inline-flex;
   align-items: baseline;
-  font-family: var(--font-signature), var(--font-display), sans-serif;
+  font-family: var(--font-display), sans-serif;
   /* Eases down on small phones; back to 1.5rem by ~640px and on desktop. */
   font-size: clamp(1.3rem, 1.05rem + 1.1vw, 1.5rem);
-  font-weight: 400;
-  letter-spacing: 0.03em;
+  font-weight: 800;
+  letter-spacing: -0.02em;
   color: #f5ece6;
 }
 
 .wordmark-accent {
   color: var(--color-cherry-hover);
-  text-shadow:
-    0 0 6px rgba(213, 63, 90, 0.9),
-    0 0 16px rgba(213, 63, 90, 0.7),
-    0 0 32px rgba(213, 63, 90, 0.45);
 }
 
 .wordmark-dot {
@@ -477,9 +473,6 @@ button {
   margin-left: 0.3rem;
   border-radius: 50%;
   background: var(--color-cherry-hover);
-  box-shadow:
-    0 0 6px rgba(213, 63, 90, 0.95),
-    0 0 14px rgba(213, 63, 90, 0.7);
 }
 
 .button {
@@ -716,7 +709,7 @@ button {
 
 .map-control-button:active:not(:disabled) {
   transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0 rgba(23, 19, 16, 0.3);
+  box-shadow: none;
 }
 
 .map-control-button:focus-visible {
@@ -863,7 +856,7 @@ button {
 
 .map-hud-reset:active:not(:disabled) {
   transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0 rgba(23, 19, 16, 0.3);
+  box-shadow: none;
 }
 
 .map-hud-reset:disabled {
@@ -937,67 +930,47 @@ button {
 .map-legend {
   position: absolute;
   z-index: 4;
-  display: none;
+  top: var(--spacing-md);
   left: var(--spacing-md);
-  bottom: var(--spacing-md);
-  width: min(11rem, calc(100vw - 2rem));
-  border: 1.5px solid var(--color-marquee);
-  border-radius: var(--radius-pixel);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-pixel);
-  overflow: hidden;
-}
-
-.map-legend-titlebar {
-  padding: 0.35rem var(--spacing-sm);
-  background: var(--color-marquee);
-  color: #f0e6e1;
-  font-family: var(--font-data), monospace;
-  font-size: var(--text-micro);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  border-bottom: 1.5px solid var(--color-cherry);
-}
-
-.map-legend-list {
   display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.6rem;
   margin: 0;
-  padding: var(--spacing-sm);
+  padding: 0.35rem 0.6rem;
   list-style: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-pixel-sm);
   color: var(--color-ink-secondary);
-  font-family: var(--font-data), monospace;
-  font-size: var(--text-micro);
+  font-family: var(--font-body), sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
-.map-legend-list li {
+.map-legend li {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.3rem;
 }
 
-.map-legend-icon {
-  display: grid;
-  flex-shrink: 0;
-  place-items: center;
-  width: 0.85rem;
-  height: 0.85rem;
-  border: 1.25px solid var(--color-marquee);
-  color: #fff4ee;
-  font-size: 0.55rem;
-  font-weight: 700;
-  line-height: 1;
+.map-legend-swatch {
+  width: 0.75rem;
+  height: 0.6rem;
+  border-radius: var(--radius-sm);
 }
 
-.map-legend-icon-spot {
-  border-radius: var(--radius-full);
+.map-legend-swatch.is-open {
   background: var(--color-cherry);
 }
 
-.map-legend-icon-cluster {
-  border-radius: var(--radius-pixel);
-  background: var(--color-cherry-deep);
+.map-legend-swatch.is-closing {
+  background: var(--color-surface);
+  border: 2px solid var(--color-cherry);
+}
+
+.map-legend-swatch.is-closed {
+  background: var(--color-canvas);
+  border: 1px solid var(--color-ink-secondary);
 }
 
 .map-mini-card-anchor {
@@ -2597,7 +2570,7 @@ button {
     height: 4.75rem;
     padding: 0 var(--spacing-xl);
     border-bottom-width: 3px;
-    box-shadow: 0 2px 24px rgba(157, 34, 53, 0.45);
+    box-shadow: none;
   }
 
   .map-attribution {
@@ -2606,9 +2579,8 @@ button {
   }
 
   .map-legend {
-    display: block;
+    top: calc(4.75rem + var(--spacing-md));
     left: var(--spacing-xl);
-    bottom: var(--spacing-xl);
   }
 }
 
@@ -2659,4 +2631,14 @@ button {
   .about-page {
     padding-top: var(--spacing-3xl);
   }
+}
+
+/* Redesign: tabular times + visible cherry focus ring. */
+time,
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-cherry);
+  outline-offset: 2px;
 }

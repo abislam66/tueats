@@ -583,29 +583,20 @@ export function VenueMap({
         </button>
       </div>
 
-      <div className="map-legend">
-        <div className="map-legend-titlebar">
-          <span>LEGEND</span>
-        </div>
-        <ul className="map-legend-list">
-          <li>
-            <span
-              aria-hidden="true"
-              className="map-legend-icon map-legend-icon-spot"
-            />
-            Individual spot
-          </li>
-          <li>
-            <span
-              aria-hidden="true"
-              className="map-legend-icon map-legend-icon-cluster"
-            >
-              +
-            </span>
-            Multiple spots
-          </li>
-        </ul>
-      </div>
+      <ul aria-label="Pin colors" className="map-legend">
+        <li>
+          <span aria-hidden="true" className="map-legend-swatch is-open" />
+          Open
+        </li>
+        <li>
+          <span aria-hidden="true" className="map-legend-swatch is-closing" />
+          Closing soon
+        </li>
+        <li>
+          <span aria-hidden="true" className="map-legend-swatch is-closed" />
+          Closed
+        </li>
+      </ul>
 
       <MapAttribution />
 

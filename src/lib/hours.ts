@@ -244,3 +244,30 @@ export function isOpenNow(
 ): boolean {
   return getOpenStatus(hours, now).kind === "open";
 }
+
+/** Minutes until an open venue's current range closes, or null if not open. */
+export function minutesUntilClose(
+  hours: VenueHours | null | undefined,
+  now: Date = new Date(),
+): number | null {
+  const status = getOpenStatus(hours, now);
+  if (status.kind !== "open") return null;
+  const { minutes } = getCampusParts(now);
+  const close = parseWallClock(status.closesAt);
+  return close > minutes ? close - minutes : close + 24 * 60 - minutes;
+}
+
+export const CLOSING_SOON_MINUTES = 60;
+
+export type PinStatus = "open" | "closing" | "closed" | "unknown";
+
+/** Map-pin status: open, closing within the hour, closed, or unknown hours. */
+export function getPinStatus(
+  hours: VenueHours | null | undefined,
+  now: Date = new Date(),
+): PinStatus {
+  const status = getOpenStatus(hours, now);
+  if (status.kind !== "open") return status.kind;
+  const left = minutesUntilClose(hours, now);
+  return left !== null && left <= CLOSING_SOON_MINUTES ? "closing" : "open";
+}

@@ -67,6 +67,8 @@ const DINING_STROKE = "#B8B4AA";
 
 type PillStyle = {
   fill: string;
+  /** Dashed outline (hours unknown). */
+  dashed?: boolean;
   stroke: string;
   borderWidth: number;
   /** Selected-only soft ring outside the border. */
@@ -94,6 +96,9 @@ export type VenuePillIconAsset = {
 
 export type VenuePillState = "normal" | "hover" | "selected";
 
+/** Open-status variant baked into the sprite (see getPinStatus). */
+export type VenuePillStatus = "open" | "closing" | "closed" | "unknown";
+
 export const DINING_PILL_ICON = "campus-dining-pill";
 
 /**
@@ -104,8 +109,9 @@ export function venuePillIconId(
   venueId: string,
   state: VenuePillState,
   name: string,
+  status: VenuePillStatus = "open",
 ): string {
-  return `venue-pill/${state}/${venueId}/${name}`;
+  return `venue-pill/${status}/${state}/${venueId}/${name}`;
 }
 
 /**
@@ -134,16 +140,61 @@ export function buildClusterPillIcon(
   return buildVenuePillIcon(clusterPillLabel(count), state);
 }
 
-const VENUE_PILL_STYLES: Record<VenuePillState, PillStyle> = {
-  normal: { fill: VENUE_FILL, stroke: INK, borderWidth: 1.5 },
-  hover: { fill: VENUE_FILL, stroke: INK, borderWidth: 2.25 },
-  selected: {
-    fill: VENUE_FILL,
-    stroke: INK,
-    borderWidth: 2.25,
-    halo: VENUE_HALO,
+// Existing tokens only: cherry, white surface, canvas, ink-secondary, border.
+const CANVAS = "#F5F5F4";
+const INK_SECONDARY = "#57534E";
+const BORDER_COLOR = "#E7E5E4";
+
+type StatusStyle = {
+  fill: string;
+  stroke: string;
+  text: string;
+  border: number;
+  dashed?: boolean;
+  /** Whole-sprite alpha (closed plates recede). */
+  alpha?: number;
+  /** Stem colour; defaults to INK. */
+  stem?: string;
+};
+
+const STATUS_STYLES: Record<VenuePillStatus, StatusStyle> = {
+  open: { fill: VENUE_FILL, stroke: INK, text: VENUE_TEXT, border: 1.5 },
+  closing: { fill: "#FFFFFF", stroke: VENUE_FILL, text: VENUE_FILL, border: 2 },
+  closed: {
+    fill: CANVAS,
+    stroke: INK_SECONDARY,
+    text: INK_SECONDARY,
+    border: 1,
+    alpha: 0.82,
+    stem: INK_SECONDARY,
+  },
+  unknown: {
+    fill: "#FFFFFF",
+    stroke: BORDER_COLOR,
+    text: INK_SECONDARY,
+    border: 1.5,
+    dashed: true,
+    stem: INK_SECONDARY,
   },
 };
+
+function venuePillStyle(
+  status: VenuePillStatus,
+  state: VenuePillState,
+): PillStyle {
+  const s = STATUS_STYLES[status];
+  // Hover/selected thicken the outline; selected adds the cherry halo.
+  // The selected outline is always ink so it reads on every status.
+  const active = state !== "normal";
+  return {
+    fill: s.fill,
+    stroke: state === "selected" ? INK : s.stroke,
+    borderWidth: active ? Math.max(s.border, 2.25) : s.border,
+    dashed: s.dashed && state !== "selected",
+    halo: state === "selected" ? VENUE_HALO : undefined,
+    stemStroke: s.stem,
+  };
+}
 
 // Same body-font approach as zone-label-icon.ts, so pill names match the
 // page's Satoshi instead of the basemap's Noto.
@@ -162,7 +213,7 @@ function paintPill(
   pillHeight: number,
   style: PillStyle,
 ) {
-  const { fill, stroke, borderWidth, halo, stemStroke = INK } = style;
+  const { fill, stroke, borderWidth, halo, dashed, stemStroke = INK } = style;
   const plateX = PAD;
   const plateY = PAD;
 
@@ -204,7 +255,9 @@ function paintPill(
   ctx.fill();
   ctx.lineWidth = borderWidth;
   ctx.strokeStyle = stroke;
+  if (dashed) ctx.setLineDash([3, 2]);
   ctx.stroke();
+  ctx.setLineDash([]);
 
   // Stem — thin leader line ending in a small fill-colored dot at the
   // true coordinate (`icon-anchor: "bottom"`), matching zone labels.
@@ -230,6 +283,7 @@ function paintPill(
 export function buildVenuePillIcon(
   name: string,
   state: VenuePillState,
+  status: VenuePillStatus = "open",
 ): VenuePillIconAsset {
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
@@ -249,9 +303,12 @@ export function buildVenuePillIcon(
   ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
   ctx.font = font; // canvas resize resets state
 
-  paintPill(ctx, pillWidth, VENUE_PILL_HEIGHT, VENUE_PILL_STYLES[state]);
+  const statusStyle = STATUS_STYLES[status];
+  // Closed plates fade, but a selected one returns to full strength.
+  ctx.globalAlpha = state === "selected" ? 1 : (statusStyle.alpha ?? 1);
+  paintPill(ctx, pillWidth, VENUE_PILL_HEIGHT, venuePillStyle(status, state));
 
-  ctx.fillStyle = VENUE_TEXT;
+  ctx.fillStyle = statusStyle.text;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(name, PAD + pillWidth / 2, PAD + VENUE_PILL_HEIGHT / 2);

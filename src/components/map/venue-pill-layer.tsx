@@ -13,7 +13,9 @@ import {
   clusterPillIconId,
   venuePillIconId,
   type VenuePillState,
+  type VenuePillStatus,
 } from "@/lib/map/venue-pill-icon";
+import { getPinStatus } from "@/lib/hours";
 import { beforeIdFor, liftOverlaysAboveBasemap } from "@/lib/map/overlay-order";
 import { CUISINES } from "@/config/cuisines";
 import { MAP_ZONES, type MapZoneKey } from "@/config/map-zones";
@@ -86,7 +88,12 @@ function clusterMemberIds(members: Venue[]): string {
 }
 
 type RenderUnit =
-  | { kind: "venue"; venue: Venue; state: VenuePillState }
+  | {
+      kind: "venue";
+      venue: Venue;
+      state: VenuePillState;
+      status: VenuePillStatus;
+    }
   | {
       kind: "cluster";
       members: Venue[];
@@ -108,6 +115,7 @@ function buildRenderUnits(
   selectedId: string | null,
   hoveredId: string | null,
   hoveredClusterKey: string | null,
+  now: Date,
 ): RenderUnit[] {
   const standalone: Venue[] = [];
   const clusterable: Venue[] = [];
@@ -123,6 +131,7 @@ function buildRenderUnits(
     kind: "venue",
     venue,
     state: pillState(venue, selectedId, hoveredId),
+    status: getPinStatus(venue.hours, now),
   }));
 
   const projected = clusterable.map((venue) => {
@@ -151,7 +160,13 @@ function buildRenderUnits(
 
   for (const group of groups) {
     if (group.length === 1) {
-      units.push({ kind: "venue", venue: group[0]!.venue, state: "normal" });
+      const venue = group[0]!.venue;
+      units.push({
+        kind: "venue",
+        venue,
+        state: "normal",
+        status: getPinStatus(venue.hours, now),
+      });
       continue;
     }
     const members = group.map((p) => p.venue);
@@ -178,7 +193,7 @@ function toFeatureCollection(units: RenderUnit[]) {
     type: "FeatureCollection" as const,
     features: units.map((unit, index) => {
       if (unit.kind === "venue") {
-        const { venue, state } = unit;
+        const { venue, state, status } = unit;
         const priority =
           state === "selected"
             ? base * 3 + index
@@ -189,7 +204,7 @@ function toFeatureCollection(units: RenderUnit[]) {
           kind: "venue",
           id: venue.id,
           priority,
-          iconId: venuePillIconId(venue.id, state, venue.name),
+          iconId: venuePillIconId(venue.id, state, venue.name, status),
         };
         return {
           type: "Feature" as const,
@@ -261,6 +276,12 @@ export function VenuePillLayer({
     null,
   );
   const [openCluster, setOpenCluster] = useState<OpenCluster | null>(null);
+  // Re-evaluate pin status every minute so "closing soon" stays live.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
 
   useEffect(() => {
     onSelectRef.current = onSelect;
@@ -413,6 +434,7 @@ export function VenuePillLayer({
         selectedId,
         hoveredId,
         hoveredClusterKey,
+        now,
       );
       // Register each pill/cluster sprite for the state it is about to
       // render in. Already-built sprites stay cached on the map instance;
@@ -424,9 +446,14 @@ export function VenuePillLayer({
             unit.venue.id,
             unit.state,
             unit.venue.name,
+            unit.status,
           );
           if (!map.hasImage(iconId)) {
-            const asset = buildVenuePillIcon(unit.venue.name, unit.state);
+            const asset = buildVenuePillIcon(
+              unit.venue.name,
+              unit.state,
+              unit.status,
+            );
             map.addImage(iconId, asset, { pixelRatio: asset.pixelRatio });
           }
         } else {
@@ -462,7 +489,7 @@ export function VenuePillLayer({
       map.off("moveend", rebuild);
       map.off("resize", rebuild);
     };
-  }, [map, venues, selectedId, hoveredId, hoveredClusterKey]);
+  }, [map, venues, selectedId, hoveredId, hoveredClusterKey, now]);
 
   useLayoutEffect(() => {
     if (!map || !openCluster) return;

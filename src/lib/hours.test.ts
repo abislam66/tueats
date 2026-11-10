@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   getCampusParts,
   getOpenStatus,
+  getPinStatus,
+  minutesUntilClose,
   isHoursUnknown,
   isInRange,
   isOpenNow,
@@ -96,5 +98,24 @@ describe("getOpenStatus", () => {
     const saturdayEarly = atCampusLocal("2026-07-18T05:00:00.000Z");
     expect(getCampusParts(saturdayEarly).weekday).toBe("sat");
     expect(getOpenStatus(hours, saturdayEarly).kind).toBe("open");
+  });
+});
+
+describe("getPinStatus", () => {
+  // 2026-11-09 is a Monday (EST, UTC-5).
+  const late: VenueHours = { mon: [{ open: "18:00", close: "02:00" }] };
+  it("is open when more than an hour remains, counting past midnight", () => {
+    const now = new Date("2026-11-10T02:40:00Z"); // Mon 21:40 EST
+    expect(getPinStatus(late, now)).toBe("open");
+    expect(minutesUntilClose(late, now)).toBe(260);
+  });
+  it("is closing within the last hour", () => {
+    const now = new Date("2026-11-10T06:20:00Z"); // Tue 01:20 EST
+    expect(getPinStatus(late, now)).toBe("closing");
+    expect(minutesUntilClose(late, now)).toBe(40);
+  });
+  it("is closed outside hours and unknown without hours", () => {
+    expect(getPinStatus(late, new Date("2026-11-09T17:00:00Z"))).toBe("closed");
+    expect(getPinStatus(null)).toBe("unknown");
   });
 });

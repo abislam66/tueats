@@ -1,44 +1,22 @@
 import { Analytics } from "@vercel/analytics/next";
 import type { Metadata } from "next";
-import {
-  Audiowide,
-  Monoton,
-  Rajdhani,
-  Share_Tech_Mono,
-} from "next/font/google";
+import { Bricolage_Grotesque, Figtree } from "next/font/google";
 import "./globals.css";
 
 import { RecoveryRedirect } from "@/components/auth/recovery-redirect";
 
-// GTA6-retro redesign (branch: gta6-redesign) — neon-sign type system.
-// Phase alpha's Cabinet Grotesk/Satoshi/JetBrains Mono live on `main`;
-// see Context memory "phase-alpha-checkpoint" for the fallback plan.
-const monoton = Monoton({
-  weight: "400",
+// Display: wordmark, venue names, times, headings. Body: UI text.
+const bricolage = Bricolage_Grotesque({
+  weight: ["500", "600", "700", "800"],
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-monoton",
+  variable: "--font-bricolage",
 });
 
-const audiowide = Audiowide({
-  weight: "400",
+const figtree = Figtree({
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-audiowide",
-});
-
-const rajdhani = Rajdhani({
-  weight: ["400", "500", "600", "700"],
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-rajdhani",
-});
-
-const shareTechMono = Share_Tech_Mono({
-  weight: "400",
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-share-tech-mono",
+  variable: "--font-figtree",
 });
 
 const SITE_DESCRIPTION =
@@ -79,7 +57,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      className={`${monoton.variable} ${audiowide.variable} ${rajdhani.variable} ${shareTechMono.variable}`}
+      className={`${bricolage.variable} ${figtree.variable}`}
       lang="en"
     >
       <body>
