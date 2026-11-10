@@ -25,7 +25,7 @@ import type { Venue, VenueFilters } from "@/lib/venues";
 
 const CARD_LIMIT = 20;
 
-type MenuKey = "cuisine" | "zone";
+type MenuKey = "filters";
 
 function toggle<T extends string>(values: T[], value: T): T[] {
   return values.includes(value)
@@ -68,6 +68,7 @@ export function PhoneHome({
   onSelectCard,
   onPickSearch,
   onSeeAll,
+  locateSlotRef,
 }: {
   venues: Venue[];
   visibleVenues: Venue[];
@@ -79,6 +80,7 @@ export function PhoneHome({
   onSelectCard: (venueId: string) => void;
   onPickSearch: (venueId: string) => void;
   onSeeAll: () => void;
+  locateSlotRef: (node: HTMLDivElement | null) => void;
 }) {
   const now = useMinuteClock();
   const posthog = usePostHog();
@@ -197,6 +199,7 @@ export function PhoneHome({
       className={searching ? "phone-stack phone-stack-searching" : "phone-stack"}
       ref={stackRef}
     >
+      <div className="phone-locate-slot" ref={locateSlotRef} />
       {searching ? (
         <>
           <PhoneSearchResults
@@ -253,61 +256,51 @@ export function PhoneHome({
               Halal
             </button>
             <button
-              aria-expanded={openMenu === "cuisine"}
+              aria-expanded={openMenu === "filters"}
               className={chipClass(
-                filters.cuisines.length > 0 || openMenu === "cuisine",
+                filters.cuisines.length + filters.zones.length > 0 ||
+                  openMenu === "filters",
               )}
               onClick={() =>
-                setOpenMenu((current) => (current === "cuisine" ? null : "cuisine"))
+                setOpenMenu((current) => (current === "filters" ? null : "filters"))
               }
               type="button"
             >
-              Cuisine
-              {filters.cuisines.length ? ` · ${filters.cuisines.length}` : ""}
-            </button>
-            <button
-              aria-expanded={openMenu === "zone"}
-              className={chipClass(
-                filters.zones.length > 0 || openMenu === "zone",
-              )}
-              onClick={() =>
-                setOpenMenu((current) => (current === "zone" ? null : "zone"))
-              }
-              type="button"
-            >
-              Zone{filters.zones.length ? ` · ${filters.zones.length}` : ""}
+              Filters
+              {filters.cuisines.length + filters.zones.length
+                ? ` · ${filters.cuisines.length + filters.zones.length}`
+                : ""}
             </button>
           </div>
           {openMenu ? (
-            <div
-              aria-label={openMenu === "cuisine" ? "Cuisines" : "Zones"}
-              className="phone-row phone-options"
-              role="group"
-            >
-              {openMenu === "cuisine"
-                ? CUISINE_KEYS.map((key) => (
-                    <button
-                      aria-pressed={filters.cuisines.includes(key)}
-                      className={chipClass(filters.cuisines.includes(key))}
-                      key={key}
-                      onClick={() => toggleCuisine(key)}
-                      type="button"
-                    >
-                      {CUISINES[key].label}
-                    </button>
-                  ))
-                : MAP_ZONE_KEYS_SORTED.map((key) => (
-                    <button
-                      aria-pressed={filters.zones.includes(key)}
-                      className={chipClass(filters.zones.includes(key))}
-                      key={key}
-                      onClick={() => toggleZone(key)}
-                      type="button"
-                    >
-                      {MAP_ZONES[key].label}
-                    </button>
-                  ))}
-            </div>
+            <>
+              <div aria-label="Cuisines" className="phone-row phone-options" role="group">
+                {CUISINE_KEYS.map((key) => (
+                  <button
+                    aria-pressed={filters.cuisines.includes(key)}
+                    className={chipClass(filters.cuisines.includes(key))}
+                    key={key}
+                    onClick={() => toggleCuisine(key)}
+                    type="button"
+                  >
+                    {CUISINES[key].label}
+                  </button>
+                ))}
+              </div>
+              <div aria-label="Zones" className="phone-row phone-options" role="group">
+                {MAP_ZONE_KEYS_SORTED.map((key) => (
+                  <button
+                    aria-pressed={filters.zones.includes(key)}
+                    className={chipClass(filters.zones.includes(key))}
+                    key={key}
+                    onClick={() => toggleZone(key)}
+                    type="button"
+                  >
+                    {MAP_ZONES[key].label}
+                  </button>
+                ))}
+              </div>
+            </>
           ) : (
             <PhoneCardCarousel
               backPath={backPath}

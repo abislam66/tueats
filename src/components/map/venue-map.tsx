@@ -3,6 +3,7 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Map as MapLibreMap } from "maplibre-gl";
 
 import { CampusBuildingLayer } from "@/components/map/campus-building-layer";
@@ -99,6 +100,7 @@ export function VenueMap({
   onClearSelection,
   onSelectZone,
   phoneLayout = false,
+  locateSlot = null,
 }: {
   venues: Venue[];
   selectedId: string | null;
@@ -115,6 +117,8 @@ export function VenueMap({
   /** Phone card layout: selecting flies to the venue without setting a
    *  zone filter, and zones are labeled with small text, not plates. */
   phoneLayout?: boolean;
+  /** Phone: the locate button renders here (the chip row), not in the map. */
+  locateSlot?: HTMLElement | null;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -587,7 +591,13 @@ export function VenueMap({
             <path d="M5 14H3a1 1 0 0 1-1-1v-2" />
           </svg>
         </button>
-        <LocateControl map={map} />
+        {phoneLayout ? (
+          locateSlot ? (
+            createPortal(<LocateControl map={map} />, locateSlot)
+          ) : null
+        ) : (
+          <LocateControl map={map} />
+        )}
       </div>
 
       <MemberLocate enabled={isSignedIn} map={map} />

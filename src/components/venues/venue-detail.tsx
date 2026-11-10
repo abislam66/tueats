@@ -189,7 +189,24 @@ export function VenueDetail({
       />
       <SiteHeader />
       <main className="detail-page">
-        <Link className="back-link" href={backPath}>
+        <Link
+          aria-label="Back to the map"
+          className="back-link place-back-link"
+          href={backPath}
+        >
+          <svg
+            aria-hidden="true"
+            fill="none"
+            height="18"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            viewBox="0 0 18 18"
+            width="18"
+          >
+            <path d="M11.5 3.5 6 9l5.5 5.5" />
+          </svg>
           Back to the map
         </Link>
 

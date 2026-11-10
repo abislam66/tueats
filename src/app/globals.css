@@ -3154,22 +3154,87 @@ html {
     display: none;
   }
 
-  .explorer-phone .map-controls {
-    top: var(--spacing-md);
-    right: var(--spacing-md);
-    bottom: auto;
-    transition: none;
-  }
-
-  .explorer-phone .map-controls > button {
+  .explorer-phone .map-controls,
+  .explorer-phone .map-attribution {
     display: none;
   }
 
-  .explorer-phone .map-attribution {
-    top: calc(var(--spacing-md) + 3.25rem);
+  .map-attribution-compact {
+    position: absolute;
+    top: var(--spacing-md);
+    left: var(--spacing-md);
+    z-index: 5;
+  }
+
+  .map-attribution-button {
+    display: grid;
+    width: 2.75rem;
+    height: 2.75rem;
+    place-items: center;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-ink-secondary);
+    box-shadow: 0 1px 4px rgba(28, 25, 23, 0.12);
+    cursor: pointer;
+  }
+
+  .map-attribution-popover {
+    position: absolute;
+    top: calc(100% + var(--spacing-xs));
+    left: 0;
+    width: max-content;
+    max-width: calc(100vw - 2rem);
+    margin: 0;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-ink-secondary);
+    font-size: var(--text-small);
+    box-shadow: 0 2px 10px rgba(28, 25, 23, 0.12);
+  }
+
+  .map-attribution-popover a {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .phone-locate-slot {
+    position: absolute;
+    top: 0;
     right: var(--spacing-md);
-    bottom: auto;
-    max-width: 12rem;
+    z-index: 1;
+    pointer-events: auto;
+  }
+
+  .phone-stack-searching .phone-locate-slot {
+    display: none;
+  }
+
+  .phone-locate-slot .locate-control {
+    display: grid;
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
+    place-items: center;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    box-shadow: 0 1px 4px rgba(28, 25, 23, 0.12);
+  }
+
+  .phone-locate-slot .locate-notice {
+    top: auto;
+    right: 0;
+    bottom: calc(100% + 0.5rem);
+    transform: none;
+  }
+
+  /* Chips scroll beside the pinned locate button. */
+  .phone-stack:not(.phone-stack-searching) .phone-chips {
+    padding-right: calc(var(--spacing-md) + 2.75rem + var(--spacing-sm));
   }
 
   .phone-stack {
@@ -3228,7 +3293,7 @@ html {
   }
 
   .phone-chips .phone-chip {
-    padding-inline: 0.6rem;
+    padding-inline: 12px;
   }
 
   .phone-search-button:active,
@@ -3551,7 +3616,21 @@ html {
 
 @media (min-width: 64rem) {
   .phone-stack,
-  .site-header .phone-clock {
+  .site-header .phone-clock,
+  .map-attribution-compact {
     display: none;
   }
+}
+
+/* Place page back link: chevron + text as one 44px target. */
+.place-back-link {
+  gap: var(--spacing-xs);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+/* The chevron's stroke starts 6px into its box; pull it to the content edge. */
+.place-back-link svg {
+  margin-left: -6px;
+  flex: 0 0 auto;
 }

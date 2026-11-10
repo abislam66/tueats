@@ -152,6 +152,7 @@ export function VenueExplorer({
   // hydration matches; the effect below flips it. CSS hides the sheet at
   // desktop width meanwhile, so there is no flash.
   const [isDesktop, setIsDesktop] = useState(false);
+  const [locateSlot, setLocateSlot] = useState<HTMLElement | null>(null);
   const posthog = usePostHog();
   const router = useRouter();
 
@@ -415,6 +416,7 @@ export function VenueExplorer({
           onClearSelection={() => setSelectedId(null)}
           onHover={setHoveredId}
           onSelect={selectFromMap}
+          locateSlot={locateSlot}
           phoneLayout={!isDesktop}
           onSelectZone={(key) => {
             posthog.capture(AnalyticsEvent.ZoneSelected, { zone: key });
@@ -431,6 +433,7 @@ export function VenueExplorer({
           <PhoneHome
             backPath={backPath}
             filters={filters}
+            locateSlotRef={setLocateSlot}
             onClearFilters={clearFilters}
             onFiltersChange={setFilters}
             onPickSearch={pickFromPhoneSearch}

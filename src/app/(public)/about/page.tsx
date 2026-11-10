@@ -63,6 +63,13 @@ export default async function AboutPage() {
             are no advertising trackers on TuEats.
           </p>
         </section>
+        <section>
+          <h2>Map data</h2>
+          <p>
+            &copy; OpenStreetMap contributors &middot; OpenFreeMap &middot;
+            OpenMapTiles
+          </p>
+        </section>
         <aside className="about-note">
           <strong>Independent and unofficial.</strong>
           <p>
