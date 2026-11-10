@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 
+import { googleMapsDirectionsUrl } from "@/lib/maps";
 import {
   CuisineTags,
   HalalTag,
@@ -50,12 +51,22 @@ export function VenuePreview({
       <div className="venue-preview-meta">
         <OpenStatus venue={venue} />
       </div>
-      <Link
-        className="button button-primary venue-preview-cta"
-        href={`/eat/${venue.slug}?from=${encodeURIComponent(backPath)}`}
-      >
-        View details
-      </Link>
+      <div className="venue-actions">
+        <a
+          className="button button-primary"
+          href={googleMapsDirectionsUrl(venue)}
+          rel="noreferrer"
+          target="_blank"
+        >
+          Get directions
+        </a>
+        <Link
+          className="button button-secondary"
+          href={`/eat/${venue.slug}?from=${encodeURIComponent(backPath)}`}
+        >
+          View details
+        </Link>
+      </div>
     </div>
   );
 }

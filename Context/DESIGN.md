@@ -91,8 +91,8 @@
 - **Phone + tablet (<1024):** the bottom sheet (collapsed / peek / full + preview) is unchanged. Status legend sits bottom-left above the sheet.
 - **Desktop (≥1024):** persistent split. List pane left (`clamp(380px, 32vw, 460px)`, own scroll; search + chips on top), map fills the rest. No sheet, handle or detents; no map HUD bar. Legend top-left of the map, zone name below it.
 - **List:** grouped by status: "Open late, latest first" (close time desc; after-midnight closes count as latest) → "Closing within the hour" (soonest first; "N min left" in warning) → "Opens later" → "Hours unknown". Rows: name (Bricolage 17/700), plain-words line ("American and halal, in Avery"), Cash Only / Halal tags, right side small caption over a big ink time. Re-sorts every minute (`useMinuteClock`). Logic: `src/lib/venue-groups.ts`.
-- **Rows:** currently link to `/eat/[slug]` (hover highlights the pin). This contradicts "Rows select, never navigate" below; the code already navigated before the redesign. Decide which one is right.
-- **Mini-card (desktop pin select):** name, plain-words line, "Open until 4:00 AM" in open green, full-width cherry "See hours and directions".
+- **Rows:** buttons that select the venue (see "Rows select, never navigate" below). Hover or focus highlights the pin.
+- **Mini-card (desktop pin select) and phone preview:** name, plain-words line, status ("Open until 4:00 AM" in open green on the mini-card), then two 44px buttons side by side: cherry "Get directions" (Google Maps, new tab) and white "View details" (to `/eat/[slug]`).
 - **Chips:** 44px, radius 8; active = cherry fill + white text.
 
 ### Home (`/`) — mobile
@@ -206,6 +206,7 @@ Maps to `Specs/architecture-planning.md`:
 
 ## Decisions Log
 
+| 2026-11-09 | List rows select the venue instead of navigating | Rows were `<a>` links to `/eat/[slug]`, contradicting this doc. They are now buttons using the existing `selectedId` path: desktop flies to the venue and opens the mini-card, phone swaps the sheet to the preview. `/eat/[slug]` is reached only through "View details". The mini-card and phone preview gain a cherry "Get directions" button (`googleMapsDirectionsUrl`); the mini-card's "See hours and directions" became "View details". Row names are spans, not headings (a heading is invalid inside a button). The existing `VenueSelected` analytics event now fires for list taps (source "list"); no event was added. |
 | 2026-11-09 | Place pages are public | Hiding hours behind sign-in blocked the core question ("is it open?"). Only rating, reviewing and photo upload need an account (server-checked). Metadata now uses the venue description. Side effect: `SignInGateShown` no longer fires for place pages (still fires on `/account`). |
 | 2026-11-09 | Desktop is a persistent split; header 56px everywhere | Desktop was a stretched phone sheet. List pane left (380–460px), map right, no sheet/HUD. Phone sheet mechanics unchanged. |
 | 2026-11-09 | List sorted by closing time, grouped by status | Alphabetical hid the answer. Groups: open late (latest first) → closing within the hour → opens later → hours unknown. |

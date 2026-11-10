@@ -42,7 +42,6 @@ const SEARCH_SUGGESTION_LIMIT = 6;
 
 function ResultsPanel({
   venues,
-  backPath,
   onClearFilters,
   unknownHours,
   filtersActive,
@@ -50,15 +49,16 @@ function ResultsPanel({
   selectedId,
   hoveredId,
   onHover,
+  onSelect,
   onPlaces,
 }: {
   venues: Venue[];
-  backPath: string;
   onClearFilters: () => void;
   unknownHours: number;
   filtersActive: boolean;
   openNowActive: boolean;
   onPlaces: () => void;
+  onSelect: (venueId: string) => void;
   selectedId: string | null;
   hoveredId: string | null;
   onHover: (venueId: string | null) => void;
@@ -93,10 +93,10 @@ function ResultsPanel({
         </button>
       </div>
       <VenueList
-        backPath={backPath}
         hoveredId={hoveredId}
         onClear={onClearFilters}
         onHover={onHover}
+        onSelect={onSelect}
         openNowActive={openNowActive}
         selectedId={selectedId}
         venues={venues}
@@ -322,12 +322,12 @@ export function VenueExplorer({
       </>
     ) : (
       <ResultsPanel
-        backPath={backPath}
         filtersActive={filtersActive}
         hoveredId={hoveredId}
         onClearFilters={clearFilters}
         onHover={setHoveredId}
         onPlaces={openPlaces}
+        onSelect={selectFromList}
         openNowActive={filters.openNow}
         selectedId={selectedId}
         unknownHours={unknownHours}

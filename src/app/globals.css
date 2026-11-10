@@ -1358,13 +1358,6 @@ button {
   gap: var(--spacing-sm);
 }
 
-.venue-preview-cta {
-  display: grid;
-  width: 100%;
-  margin-top: var(--spacing-sm);
-  place-items: center;
-}
-
 .venue-preview-close {
   position: absolute;
   top: 0;
@@ -2929,15 +2922,6 @@ time,
   font-family: var(--font-body), sans-serif;
 }
 
-.map-mini-card-cta {
-  display: flex;
-  align-items: center;
-  text-decoration: none;
-  margin-top: var(--spacing-sm);
-  width: 100%;
-  justify-content: center;
-  border-radius: var(--radius-md);
-}
 
 /* ---- Redesign phase 4: place page ---- */
 .back-link {
@@ -3092,4 +3076,28 @@ time,
   .detail-hero h1 {
     font-size: 3rem;
   }
+}
+
+/* Get directions (cherry) + View details, shared by the desktop mini-card
+   and the phone preview. */
+.venue-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+}
+
+.venue-actions .button {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  padding-inline: var(--spacing-sm);
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+button.venue-row {
+  appearance: none;
 }

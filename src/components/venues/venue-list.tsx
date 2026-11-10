@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useRef } from "react";
 
 import { EmptyState } from "@/components/ui/primitives";
@@ -63,22 +62,23 @@ function RowTime({
 }
 
 /**
- * Rows navigate straight to `/eat/[slug]` — `onHover` only highlights
- * the matching pin on the map, it doesn't select/fly to it.
+ * Rows select the venue on the map (desktop: fly-to + mini-card; phone:
+ * the sheet swaps to the venue preview). `/eat/[slug]` is reached only
+ * from the mini-card / preview. `onHover` just highlights the pin.
  */
 export function VenueRow({
   item,
   group,
-  href,
   selected = false,
   highlighted = false,
+  onSelect,
   onHover,
 }: {
   item: GroupedVenue;
   group: VenueGroupKey;
-  href: string;
   selected?: boolean;
   highlighted?: boolean;
+  onSelect: (venueId: string) => void;
   onHover?: (venueId: string | null) => void;
 }) {
   const { venue } = item;
@@ -94,7 +94,8 @@ export function VenueRow({
 
   return (
     <li ref={rowRef}>
-      <Link
+      <button
+        aria-current={selected ? "true" : undefined}
         className={[
           "venue-row",
           selected && "venue-row-selected",
@@ -102,14 +103,15 @@ export function VenueRow({
         ]
           .filter(Boolean)
           .join(" ")}
-        href={href}
         onBlur={() => onHover?.(null)}
+        onClick={() => onSelect(venue.id)}
         onFocus={() => onHover?.(venue.id)}
         onMouseEnter={() => onHover?.(venue.id)}
         onMouseLeave={() => onHover?.(null)}
+        type="button"
       >
         <span className="venue-row-main">
-          <h3 className="venue-row-name">{venue.name}</h3>
+          <span className="venue-row-name">{venue.name}</span>
           {line ? <span className="venue-row-line">{line}</span> : null}
           {tagged || venue.studentRating ? (
             <span className="venue-tags">
@@ -124,23 +126,23 @@ export function VenueRow({
           ) : null}
         </span>
         <RowTime group={group} item={item} />
-      </Link>
+      </button>
     </li>
   );
 }
 
 export function VenueList({
   venues,
-  backPath,
   onClear,
+  onSelect,
   openNowActive = false,
   selectedId = null,
   hoveredId = null,
   onHover,
 }: {
   venues: Venue[];
-  backPath: string;
   onClear: () => void;
+  onSelect: (venueId: string) => void;
   openNowActive?: boolean;
   selectedId?: string | null;
   hoveredId?: string | null;
@@ -179,10 +181,10 @@ export function VenueList({
               <VenueRow
                 group={group.key}
                 highlighted={item.venue.id === hoveredId}
-                href={`/eat/${item.venue.slug}?from=${encodeURIComponent(backPath)}`}
                 item={item}
                 key={item.venue.id}
                 onHover={onHover}
+                onSelect={onSelect}
                 selected={item.venue.id === selectedId}
               />
             ))}

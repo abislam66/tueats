@@ -34,6 +34,7 @@ import {
 } from "@/config/site";
 import { formatCampusNow, formatClockTime, getOpenStatus } from "@/lib/hours";
 import { useMinuteClock } from "@/lib/use-minute-clock";
+import { googleMapsDirectionsUrl } from "@/lib/maps";
 import { venuePlainLine } from "@/lib/venue-groups";
 import { mapZoneContaining } from "@/lib/map/point-in-polygon";
 import {
@@ -646,12 +647,22 @@ export function VenueMap({
                   </p>
                 ) : null}
                 <MiniCardStatus venue={poppedVenue} />
-                <Link
-                  className="button button-primary map-mini-card-cta"
-                  href={`/eat/${poppedVenue.slug}?from=${encodeURIComponent(backPath)}`}
-                >
-                  See hours and directions
-                </Link>
+                <div className="venue-actions">
+                  <a
+                    className="button button-primary"
+                    href={googleMapsDirectionsUrl(poppedVenue)}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    Get directions
+                  </a>
+                  <Link
+                    className="button button-secondary"
+                    href={`/eat/${poppedVenue.slug}?from=${encodeURIComponent(backPath)}`}
+                  >
+                    View details
+                  </Link>
+                </div>
                 <button
                   aria-label="Close venue preview"
                   className="map-mini-card-close"
