@@ -43,6 +43,7 @@ import {
   measureCurrentMobileSheetHeightPx,
   measureMobileSheetHeightPx,
 } from "@/lib/mobile-sheet-heights";
+import { measurePhoneStackPx } from "@/lib/phone-stack";
 import type { Venue } from "@/lib/venues";
 
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -97,6 +98,7 @@ export function VenueMap({
   onHover,
   onClearSelection,
   onSelectZone,
+  phoneLayout = false,
 }: {
   venues: Venue[];
   selectedId: string | null;
@@ -110,6 +112,9 @@ export function VenueMap({
   onHover: (venueId: string | null) => void;
   onClearSelection: () => void;
   onSelectZone: (key: MapZoneKey | null) => void;
+  /** Phone card layout: selecting flies to the venue without setting a
+   *  zone filter, and zones are labeled with small text, not plates. */
+  phoneLayout?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -326,7 +331,11 @@ export function VenueMap({
   useEffect(() => {
     if (!map || !selectedVenue) return;
     const hostZone = mapZoneContaining(selectedVenue.lng, selectedVenue.lat);
-    if (hostZone && !selectedZonesRef.current.includes(hostZone)) {
+    if (
+      !phoneLayout &&
+      hostZone &&
+      !selectedZonesRef.current.includes(hostZone)
+    ) {
       onSelectZoneRef.current(hostZone);
       return;
     }
@@ -355,12 +364,14 @@ export function VenueMap({
         top: 0,
         right: 0,
         // Desktop has no sheet over the map (list is a side pane).
-        bottom: desktop ? 0 : measureMobileSheetHeightPx("preview"),
+        bottom: desktop
+          ? 0
+          : (measurePhoneStackPx() ?? measureMobileSheetHeightPx("preview")),
         left: 0,
       },
       duration: reduceMotion ? 0 : 650,
     });
-  }, [map, selectedVenue, reduceMotion]);
+  }, [map, selectedVenue, reduceMotion, phoneLayout]);
 
   // The mini-card tracks the selected pin: its anchor's left/top are
   // written directly (no re-render) from the pin's projected screen point
@@ -612,6 +623,7 @@ export function VenueMap({
       <CampusBuildingLayer map={map} />
 
       <MapZoneLayer
+        labelStyle={phoneLayout ? "text" : "plate"}
         map={map}
         onSelect={selectZone}
         zoneCounts={zoneCounts}
@@ -750,9 +762,9 @@ function flyToZones(
   const isMobile = !window.matchMedia(DESKTOP_MEDIA_QUERY).matches;
   const bottomInset = !isMobile
     ? 0
-    : venueSelected
+    : (measurePhoneStackPx() ?? (venueSelected
       ? measureMobileSheetHeightPx("preview")
-      : measureCurrentMobileSheetHeightPx();
+      : measureCurrentMobileSheetHeightPx()));
   map.fitBounds(
     [
       [bounds.west, bounds.south],

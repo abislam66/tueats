@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { Map as MapLibreMap, MapGeoJSONFeature } from "maplibre-gl";
+import type {
+  ExpressionSpecification,
+  Map as MapLibreMap,
+  MapGeoJSONFeature,
+} from "maplibre-gl";
 
 import {
   MAP_ZONES,
@@ -26,6 +30,15 @@ export const MAP_ZONE_LAYER_IDS = [HIT_LAYER_ID, LABEL_LAYER_ID] as const;
 export const MAP_ZONE_CLICK_LAYER_IDS = [HIT_LAYER_ID, LABEL_LAYER_ID] as const;
 
 const CHERRY = "#9D2235";
+const INK_SECONDARY = "#57534E"; // --color-ink-secondary
+const SURFACE = "#FFFFFF"; // --color-surface
+
+const ZONE_LABEL_TEXT = [
+  "match",
+  ["get", "zoneKey"],
+  ...MAP_ZONE_KEYS.flatMap((key) => [key, MAP_ZONES[key].label]),
+  "",
+] as unknown as ExpressionSpecification;
 
 function zoneKeyFromFeatures(
   features: MapGeoJSONFeature[] | undefined,
@@ -64,8 +77,11 @@ export function MapZoneLayer({
   zonesActive,
   zoneCounts,
   onSelect,
+  labelStyle = "plate",
 }: {
   map: MapLibreMap | null;
+  /** "text" = small muted zone names instead of badge plates (phone). */
+  labelStyle?: "plate" | "text";
   /** Any zone filter active → the overview marks hide (pills take over). */
   zonesActive: boolean;
   /** Live "N spots" count per zone, baked into each badge (see venue-map.tsx). */
@@ -96,6 +112,7 @@ export function MapZoneLayer({
     for (const key of MAP_ZONE_KEYS) {
       const imageId = zoneLabelIconId(key);
       if (map.hasImage(imageId)) map.removeImage(imageId);
+      if (labelStyle === "text") continue;
       const zone = MAP_ZONES[key];
       const plate = buildZoneLabelIcon(
         zone.label,
@@ -125,33 +142,58 @@ export function MapZoneLayer({
       beforeIdFor(map, HIT_LAYER_ID),
     );
 
-    map.addLayer(
-      {
-        id: LABEL_LAYER_ID,
-        type: "symbol",
-        source: SOURCE_ID,
-        filter: ["==", ["get", "role"], MAP_ZONE_GEOJSON_ROLE.label],
-        layout: {
-          "icon-image": ["concat", ZONE_LABEL_ICON_PREFIX, ["get", "zoneKey"]],
-          "icon-allow-overlap": true,
-          "icon-ignore-placement": true,
-          "icon-overlap": "always",
-          "icon-padding": 0,
-          "icon-anchor": "bottom",
-          "icon-size": [
-            "interpolate",
-            ["linear"],
-            ["zoom"],
-            14,
-            0.92,
-            16,
-            14 / 12,
-          ],
-          "symbol-sort-key": ["get", "sort"],
+    if (labelStyle === "text") {
+      map.addLayer(
+        {
+          id: LABEL_LAYER_ID,
+          type: "symbol",
+          source: SOURCE_ID,
+          filter: ["==", ["get", "role"], MAP_ZONE_GEOJSON_ROLE.label],
+          layout: {
+            "text-field": ZONE_LABEL_TEXT,
+            "text-font": ["Noto Sans Regular"],
+            "text-size": 11,
+            "text-anchor": "bottom",
+            "text-padding": 2,
+            "symbol-sort-key": ["get", "sort"],
+          },
+          paint: {
+            "text-color": INK_SECONDARY,
+            "text-halo-color": SURFACE,
+            "text-halo-width": 1.2,
+          },
         },
-      },
-      beforeIdFor(map, LABEL_LAYER_ID),
-    );
+        beforeIdFor(map, LABEL_LAYER_ID),
+      );
+    } else {
+      map.addLayer(
+        {
+          id: LABEL_LAYER_ID,
+          type: "symbol",
+          source: SOURCE_ID,
+          filter: ["==", ["get", "role"], MAP_ZONE_GEOJSON_ROLE.label],
+          layout: {
+            "icon-image": ["concat", ZONE_LABEL_ICON_PREFIX, ["get", "zoneKey"]],
+            "icon-allow-overlap": true,
+            "icon-ignore-placement": true,
+            "icon-overlap": "always",
+            "icon-padding": 0,
+            "icon-anchor": "bottom",
+            "icon-size": [
+              "interpolate",
+              ["linear"],
+              ["zoom"],
+              14,
+              0.92,
+              16,
+              14 / 12,
+            ],
+            "symbol-sort-key": ["get", "sort"],
+          },
+        },
+        beforeIdFor(map, LABEL_LAYER_ID),
+      );
+    }
 
     liftOverlaysAboveBasemap(map);
 
@@ -188,7 +230,7 @@ export function MapZoneLayer({
         if (map.hasImage(imageId)) map.removeImage(imageId);
       }
     };
-  }, [map]);
+  }, [map, labelStyle]);
 
   // Re-bake each zone's badge whenever the live spot count changes (filter
   // changes, publish/retire, etc.) — same image id, updated bitmap, so the
@@ -220,7 +262,7 @@ export function MapZoneLayer({
   useEffect(() => {
     if (!map || !map.getSource(SOURCE_ID)) return;
     setOverviewVisible(map, !zonesActive);
-  }, [map, zonesActive]);
+  }, [map, zonesActive, labelStyle]);
 
   return null;
 }

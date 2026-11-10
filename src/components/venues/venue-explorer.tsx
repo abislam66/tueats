@@ -18,10 +18,11 @@ import {
   MapSearchOverlay,
   type SearchSuggestion,
 } from "@/components/venues/map-search-overlay";
+import { PhoneClock, PhoneHome } from "@/components/venues/phone-home";
 import { PlacesOfTheWeekPanel } from "@/components/venues/places-of-the-week-panel";
 import { VenueList } from "@/components/venues/venue-list";
-import { VenuePreview } from "@/components/venues/venue-preview";
 import { AnalyticsEvent } from "@/lib/analytics";
+import { isOpenNow } from "@/lib/hours";
 import {
   DESKTOP_MEDIA_QUERY,
   type MobileSheetSnap,
@@ -137,6 +138,11 @@ export function VenueExplorer({
   const [snap, setSnap] = useState<MobileSheetSnap>(() =>
     initialParams.get("view") === "restaurants" ? "peek" : "collapsed",
   );
+  // Phone: the list lives behind "See all" and opens at the full snap.
+  const [phoneSheetOpen, setPhoneSheetOpen] = useState(() => {
+    const view = initialParams.get("view");
+    return view === "restaurants" || view === "places" || view === "hotspots";
+  });
   // On mobile, selecting a venue swaps the sheet into a preview card (no
   // room for both a browse view and a floating mini-card at once). On
   // desktop the mini-card handles the selection instead — the sheet stays
@@ -199,6 +205,31 @@ export function VenueExplorer({
     setFilters((current) => ({ ...current, query: "" }));
     setSearchFocused(false);
     setSelectedId(venueId);
+  }
+
+  // Phone search ignores Open now, so a closed pick has to drop it or the
+  // visibility guard below would clear the selection straight away.
+  function pickFromPhoneSearch(venueId: string) {
+    const venue = venues.find((candidate) => candidate.id === venueId);
+    if (filters.openNow && venue && !isOpenNow(venue.hours)) {
+      setFilters((current) => ({ ...current, openNow: false }));
+    }
+    selectFromSearch(venueId);
+  }
+
+  function selectFromPhoneList(venueId: string | null) {
+    selectFromList(venueId);
+    setPhoneSheetOpen(false);
+  }
+
+  function openPhoneSheet() {
+    setSnap("full");
+    setPhoneSheetOpen(true);
+  }
+
+  function closePhoneSheet() {
+    setPhoneSheetOpen(false);
+    setViewMode("map");
   }
 
   function handleSearchBlur(event: ReactFocusEvent<HTMLInputElement>) {
@@ -304,19 +335,10 @@ export function VenueExplorer({
     if (venue) router.prefetch(`/eat/${venue.slug}`);
   }, [hoveredId, selectedId, venues, router]);
 
-  const selectedVenue = venues.find((venue) => venue.id === selectedId) ?? null;
-  // See the isDesktop comment above: only mobile ever swaps the sheet into
-  // the preview card.
-  const sheetMode = selectedVenue && !isDesktop ? "preview" : "browse";
+  const onListSelect = isDesktop ? selectFromList : selectFromPhoneList;
 
   const sheetBody =
-    sheetMode === "preview" && selectedVenue ? (
-      <VenuePreview
-        backPath={backPath}
-        onClose={() => setSelectedId(null)}
-        venue={selectedVenue}
-      />
-    ) : viewMode === "places" ? (
+    viewMode === "places" ? (
       <>
         <button
           className="text-link places-back"
@@ -328,7 +350,7 @@ export function VenueExplorer({
         <PlacesOfTheWeekPanel
           hoveredId={hoveredId}
           onHover={setHoveredId}
-          onSelect={selectFromList}
+          onSelect={onListSelect}
           selectedId={selectedId}
           venues={venues}
         />
@@ -340,7 +362,7 @@ export function VenueExplorer({
         onClearFilters={clearFilters}
         onHover={setHoveredId}
         onPlaces={openPlaces}
-        onSelect={selectFromList}
+        onSelect={onListSelect}
         openNowActive={filters.openNow}
         selectedId={selectedId}
         unknownHours={unknownHours}
@@ -364,7 +386,9 @@ export function VenueExplorer({
   );
 
   return (
-    <main className={isDesktop ? "explorer explorer-desktop" : "explorer"}>
+    <main
+      className={isDesktop ? "explorer explorer-desktop" : "explorer explorer-phone"}
+    >
       {/* The map-first redesign dropped the visible "Find your next campus
           bite" hero text (map dominates instead), but the page still needs
           exactly one real h1 for accessibility/SEO. */}
@@ -372,6 +396,7 @@ export function VenueExplorer({
       <SiteHeader
         onHome={goHome}
         onPlaces={openPlaces}
+        phoneSlot={isDesktop ? undefined : <PhoneClock />}
         session={session}
         viewMode={viewMode}
       />
@@ -390,6 +415,7 @@ export function VenueExplorer({
           onClearSelection={() => setSelectedId(null)}
           onHover={setHoveredId}
           onSelect={selectFromMap}
+          phoneLayout={!isDesktop}
           onSelectZone={(key) => {
             posthog.capture(AnalyticsEvent.ZoneSelected, { zone: key });
             setFilters((current) => ({
@@ -401,17 +427,38 @@ export function VenueExplorer({
           selectedZones={filters.zones}
           venues={visibleVenues}
         />
-        {isDesktop ? null : searchOverlay}
+        {isDesktop || phoneSheetOpen ? null : (
+          <PhoneHome
+            backPath={backPath}
+            filters={filters}
+            onClearFilters={clearFilters}
+            onFiltersChange={setFilters}
+            onPickSearch={pickFromPhoneSearch}
+            onSeeAll={openPhoneSheet}
+            onSelectCard={selectFromList}
+            selectedId={selectedId}
+            venues={venues}
+            visibleVenues={visibleVenues}
+          />
+        )}
       </div>
-      {isDesktop ? null : (
+      {isDesktop || !phoneSheetOpen ? null : (
         <div className="results-sheet-region">
           <MobileSheet
-            browseLabel="All Restaurants ⌃"
-            mode={sheetMode}
-            onDismissPreview={() => setSelectedId(null)}
-            onSnapChange={setSnap}
+            mode="browse"
+            onSnapChange={(next) => {
+              if (next === "full") setSnap(next);
+              else closePhoneSheet();
+            }}
             snap={snap}
           >
+            <button
+              className="phone-sheet-close"
+              onClick={closePhoneSheet}
+              type="button"
+            >
+              Close
+            </button>
             {sheetBody}
           </MobileSheet>
         </div>

@@ -34,6 +34,7 @@ export function VenueMapLoader({
   onHover,
   onClearSelection,
   onSelectZone,
+  phoneLayout,
 }: {
   venues: Venue[];
   selectedId: string | null;
@@ -46,6 +47,7 @@ export function VenueMapLoader({
   onHover: (venueId: string | null) => void;
   onClearSelection: () => void;
   onSelectZone: (key: MapZoneKey | null) => void;
+  phoneLayout?: boolean;
 }) {
   return (
     <VenueMap
@@ -56,6 +58,7 @@ export function VenueMapLoader({
       onHover={onHover}
       onSelect={onSelect}
       onSelectZone={onSelectZone}
+      phoneLayout={phoneLayout}
       selectedId={selectedId}
       selectedZones={selectedZones}
       venues={venues}
