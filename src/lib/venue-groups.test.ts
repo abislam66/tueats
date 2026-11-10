@@ -63,4 +63,38 @@ describe("venuePlainLine", () => {
     });
     expect(line).toBe("American and halal, in Avery");
   });
+
+  it("uses the zone, or just the street, instead of a full address", () => {
+    const address = "1422 Cecil B. Moore Ave, Philadelphia, PA 19121";
+    const withZone = venuePlainLine({
+      ...base,
+      type: "restaurant",
+      cuisines: ["american"],
+      isHalal: false,
+      building: address,
+      mapZone: "avery",
+    });
+    expect(withZone).toBe("American, in Avery");
+    const noZone = venuePlainLine({
+      ...base,
+      type: "restaurant",
+      cuisines: ["american"],
+      isHalal: false,
+      building: address,
+      mapZone: null,
+    });
+    expect(noZone).toBe("American, in 1422 Cecil B. Moore Ave");
+  });
+
+  it("handles a venue with no cuisine, halal flag, building or zone", () => {
+    expect(
+      venuePlainLine({
+        ...base,
+        cuisines: [],
+        isHalal: false,
+        building: null,
+        mapZone: null,
+      }),
+    ).toBe("");
+  });
 });

@@ -111,8 +111,26 @@ function joinAnd(parts: string[]): string {
 }
 
 /**
+ * Short place name for the plain-words line. `building` is whatever an
+ * admin typed: a landmark ("Morgan Hall North") reads fine as-is, but a
+ * street address ("1422 Cecil B. Moore Ave, Philadelphia, PA 19121") is
+ * too long, so prefer the zone name and fall back to the street alone.
+ */
+export function venuePlaceName(venue: Venue): string | null {
+  const zone =
+    venue.mapZone && venue.mapZone !== OTHER_MAP_ZONE
+      ? MAP_ZONES[venue.mapZone].label
+      : null;
+  const building = venue.building?.trim() || null;
+  if (building && /^\d/.test(building)) {
+    return zone ?? building.split(",")[0]!.trim();
+  }
+  return building ?? zone;
+}
+
+/**
  * One plain-words line for a row: "American and halal, in Avery".
- * Cuisine names (max two) + halal, then the most specific known place.
+ * Cuisine names (max two) + halal, then a short place name.
  */
 export function venuePlainLine(venue: Venue): string {
   const kinds = venue.cuisines.slice(0, 2).map((c, i) => {
@@ -121,11 +139,7 @@ export function venuePlainLine(venue: Venue): string {
   });
   if (venue.isHalal) kinds.push(kinds.length ? "halal" : "Halal");
   const what = joinAnd(kinds);
-  const place =
-    venue.building ??
-    (venue.mapZone && venue.mapZone !== OTHER_MAP_ZONE
-      ? MAP_ZONES[venue.mapZone].label
-      : null);
+  const place = venuePlaceName(venue);
   const where = place
     ? `${venue.type === "truck" ? "near" : "in"} ${place}`
     : "";

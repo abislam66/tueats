@@ -59,6 +59,23 @@ const LABEL_FONT_SIZE = 13;
 // Space between the text and each vertical plate edge. Small and
 // comfortable — enough to breathe, not the roomy chip it was.
 const LABEL_PAD_X = 11;
+// Longest label drawn on a plate (design px); longer names end in "…" so a
+// 70-character name can't produce a plate wider than the screen.
+const LABEL_MAX_WIDTH = 190;
+
+/** Shortens `text` with an ellipsis until it fits `maxWidth`. */
+export function fitLabel(
+  measure: (text: string) => number,
+  text: string,
+  maxWidth: number,
+): string {
+  if (measure(text) <= maxWidth) return text;
+  let end = text.length;
+  while (end > 1 && measure(`${text.slice(0, end).trimEnd()}…`) > maxWidth) {
+    end -= 1;
+  }
+  return `${text.slice(0, end).trimEnd()}…`;
+}
 
 // Campus-dining info pins: white surface + the campus-building stroke
 // stone, so they read as map furniture — never a tappable cherry venue.
@@ -291,7 +308,12 @@ export function buildVenuePillIcon(
 
   const font = labelFont();
   ctx.font = font;
-  const textWidth = ctx.measureText(name).width;
+  const label = fitLabel(
+    (text) => ctx.measureText(text).width,
+    name,
+    LABEL_MAX_WIDTH,
+  );
+  const textWidth = ctx.measureText(label).width;
   const pillWidth = Math.max(
     VENUE_PILL_MIN_WIDTH,
     Math.ceil(textWidth + LABEL_PAD_X * 2),
@@ -311,7 +333,7 @@ export function buildVenuePillIcon(
   ctx.fillStyle = statusStyle.text;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(name, PAD + pillWidth / 2, PAD + VENUE_PILL_HEIGHT / 2);
+  ctx.fillText(label, PAD + pillWidth / 2, PAD + VENUE_PILL_HEIGHT / 2);
 
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 

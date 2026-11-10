@@ -3101,3 +3101,51 @@ time,
 button.venue-row {
   appearance: none;
 }
+
+/* ---- Step 3: long-content hardening ---- */
+.venue-row-main {
+  flex: 1 1 auto;
+}
+
+.venue-row-name,
+.venue-row-line,
+.map-mini-card-name,
+.map-mini-card-line,
+.venue-preview h2,
+.detail-hero h1,
+.detail-line {
+  overflow-wrap: anywhere;
+}
+
+.venue-row-name {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.venue-row-line {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.map-mini-card-name {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.venue-row-time {
+  max-width: 45%;
+}
+
+.venue-row-caption {
+  white-space: nowrap;
+}
+
+.venue-actions .button {
+  min-width: 0;
+}
