@@ -133,14 +133,19 @@ Map is the first viewport. Wordmark top-left (“Tu” ink, “Eats” cherry). 
 
 ## Motion
 
-- **Approach:** Intentional, performance-budgeted (Lighthouse mobile ≥90; MapLibre is already heavy). Desktop can afford slightly richer hover/selection feedback; don’t add weight to the mobile critical path.
-- **Libraries:**
-  - **Framer Motion** — sheet snap (mobile), list filter crossfade, selected pin spring, list↔pin highlight, detail page enter, chip press. Client chunks for explorer + detail only.
-  - **GSAP** — one-shot pin stagger after `map.on('load')` (≤40 pins, 20–30ms stagger, `power2.out`, total &lt;800ms). Dynamic import only; never on critical path.
-  - **CSS** — badges, hover, focus rings, reduced-motion fallbacks
+- **Approach:** Intentional, performance-budgeted (Lighthouse mobile ≥90; MapLibre is already heavy). Nothing animates on page load or on scroll.
+- **What moves (2026-11 audit):**
+  - **Bottom sheet snaps (phone):** height transition, medium (350ms), ease-in-out. The map controls and legend follow with the same timing.
+  - **Row → map selection:** camera `easeTo` 650ms (zone fit 450ms, reset 220ms); then the desktop mini-card arrives after the camera settles (Framer Motion: opacity + 12px rise, 200ms ease-out; exit 100ms ease-in). Phone swaps the sheet to the preview with no extra motion.
+  - **Pins:** selection swaps the sprite instantly. No spring, no stagger.
+  - **Filter drawer:** grid-row 0fr → 1fr, short (200ms).
+  - **Hover / press feedback:** background or color only, micro (100ms). Hover styles apply only under `@media (hover: hover)`; touch gets `:active`.
+  - **List row scroll-into-view:** smooth, except under reduced motion.
+- **Removed:** pixel-press `translate(1px, 1px)`, the mini-card hover lift, and the dead map HUD styles. The GSAP pin stagger, list crossfade, detail-page enter and chip press that earlier versions of this doc listed were never built and are not planned.
+- **Library:** Framer Motion is used for the mini-card only (plus `useReducedMotion`). No GSAP. No new animation libraries.
 - **Easing:** enter ease-out · exit ease-in · move ease-in-out
 - **Duration:** micro 100ms · short 200ms · medium 350ms · long ≤700ms
-- **Rules:** Honor `prefers-reduced-motion: reduce` (instant state, no stagger). No scroll-jacking. No perpetual GSAP timelines on home. Desktop hover transitions stay in the micro/short range.
+- **Rules:** Honor `prefers-reduced-motion: reduce` everywhere: a global CSS rule collapses transitions, camera moves and the mini-card use duration 0, and JS smooth scrolling is checked explicitly. No scroll-jacking. Desktop hover transitions stay in the micro/short range.
 
 ## Map
 
@@ -206,6 +211,7 @@ Maps to `Specs/architecture-planning.md`:
 
 ## Decisions Log
 
+| 2026-11-09 | Motion audit: remove decoration, keep what explains a change | Removed the pixel-press translate, the mini-card hover lift (a popover the pointer sits inside shouldn't move) and dead HUD CSS. Row feedback is now micro (100ms). The mini-card exit is 100ms ease-in. List `scrollIntoView` now honors reduced motion (an explicit "smooth" overrides the CSS rule). Motion section rewritten to what is actually built. |
 | 2026-11-09 | Phone-native pass | `viewport-fit=cover` with `--header-h` (56px + `env(safe-area-inset-top)`) so the header pads under the notch; bottom sheet and place page already/now clear the home indicator. Search input is 16px / 44px (iOS zooms below 16px). All `:hover` styles are gated by `@media (hover: hover)`, with `:active` pressed states for touch; `touch-action: manipulation` on controls; tap highlight off. Fixed the collapsed sheet label (`.sheet-handle span` also matched the label and squashed it into a 4px bar). Sheet snap logic untouched. |
 | 2026-11-09 | List rows select the venue instead of navigating | Rows were `<a>` links to `/eat/[slug]`, contradicting this doc. They are now buttons using the existing `selectedId` path: desktop flies to the venue and opens the mini-card, phone swaps the sheet to the preview. `/eat/[slug]` is reached only through "View details". The mini-card and phone preview gain a cherry "Get directions" button (`googleMapsDirectionsUrl`); the mini-card's "See hours and directions" became "View details". Row names are spans, not headings (a heading is invalid inside a button). The existing `VenueSelected` analytics event now fires for list taps (source "list"); no event was added. |
 | 2026-11-09 | Place pages are public | Hiding hours behind sign-in blocked the core question ("is it open?"). Only rating, reviewing and photo upload need an account (server-checked). Metadata now uses the venue description. Side effect: `SignInGateShown` no longer fires for place pages (still fires on `/account`). |

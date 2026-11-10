@@ -623,7 +623,15 @@ export function VenueMap({
           <motion.div
             animate={{ opacity: 1 }}
             className="map-mini-card-anchor"
-            exit={{ opacity: 0 }}
+            exit={{
+              opacity: 0,
+              // Exits are quick (micro) and ease-in so a swap to another
+              // pin never leaves two cards on screen for long.
+              transition: {
+                duration: reduceMotion ? 0 : 0.1,
+                ease: "easeIn",
+              },
+            }}
             initial={reduceMotion ? false : { opacity: 0 }}
             key={poppedVenue.id}
             ref={setMiniCardAnchor}
@@ -632,7 +640,13 @@ export function VenueMap({
             <motion.div
               animate={{ y: 0 }}
               className="map-mini-card-wrap"
-              exit={{ y: 8 }}
+              exit={{
+                y: reduceMotion ? 0 : 8,
+                transition: {
+                  duration: reduceMotion ? 0 : 0.1,
+                  ease: "easeIn",
+                },
+              }}
               initial={reduceMotion ? false : { y: 12 }}
               transition={{
                 duration: reduceMotion ? 0 : 0.2,

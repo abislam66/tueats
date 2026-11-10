@@ -717,9 +717,7 @@ button {
   font-weight: 700;
   line-height: 1;
   box-shadow: var(--shadow-pixel-sm);
-  transition:
-    background var(--duration-micro) var(--ease-move),
-    transform var(--duration-micro) var(--ease-move);
+  transition: background var(--duration-micro) var(--ease-move);
 }
 
 @media (hover: hover) {
@@ -729,7 +727,6 @@ button {
 }
 
 .map-control-button:active:not(:disabled) {
-  transform: translate(1px, 1px);
   box-shadow: none;
 }
 
@@ -796,103 +793,8 @@ button {
   box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.22);
 }
 
-/* Retro-HUD map header — a game-map-style status bar instead of the old
-   corner pill: campus/zone breadcrumb, a live LAT/LON readout of the map
-   center, and (once a zone is active) a reset button. Dark like the site
-   header's marquee, so the two read as one family. */
-.map-hud-bar {
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  z-index: 3;
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-md);
-  padding: 0.5rem var(--spacing-md);
-  background: var(--color-marquee);
-  border-bottom: 2px solid var(--color-cherry);
-  color: #f0e6e1;
-  font-family: var(--font-data), monospace;
-  font-size: var(--text-micro);
-  letter-spacing: 0.03em;
-  pointer-events: none;
-}
-
-.map-hud-location {
-  overflow: hidden;
-  font-weight: 700;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.map-hud-coords {
-  display: none;
-  margin-left: auto;
-  /* cherry-hover here measured ~3:1 against the dark marquee background —
-     fails WCAG AA for this small text. cherry-soft keeps the same cherry
-     family (a pale tint, not a new hue) at ~16:1. */
-  color: var(--color-cherry-soft);
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-
-@media (min-width: 26rem) {
-  .map-hud-coords {
-    display: inline;
-  }
-}
-
-.map-hud-reset {
-  display: inline-flex;
-  flex-shrink: 0;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.35rem 0.7rem;
-  border: 1.5px solid var(--color-cherry);
-  border-radius: var(--radius-pixel);
-  background: var(--color-cherry-deep);
-  box-shadow: var(--shadow-pixel-sm);
-  color: #fff4ee;
-  font-family: var(--font-data), monospace;
-  font-size: var(--text-micro);
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  cursor: pointer;
-  pointer-events: auto;
-  transition:
-    background var(--duration-micro) var(--ease-move),
-    transform var(--duration-micro) var(--ease-move);
-}
-
-.map-hud-reset svg {
-  flex-shrink: 0;
-  color: #f2c9c9;
-}
-
-@media (hover: hover) {
-  .map-hud-reset:hover:not(:disabled) {
-    background: var(--color-cherry);
-  }
-}
-
-.map-hud-reset:active:not(:disabled) {
-  transform: translate(1px, 1px);
-  box-shadow: none;
-}
-
-.map-hud-reset:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
 @media (max-width: 63.9375rem) {
   .map-control-button.map-control-zoom {
-    display: none;
-  }
-
-  .map-hud-bar {
     display: none;
   }
 
@@ -1032,13 +934,6 @@ button {
   border-radius: var(--radius-pixel);
   background: var(--color-surface);
   box-shadow: var(--shadow-pixel);
-  transition: transform var(--duration-short) var(--ease-move);
-}
-
-@media (hover: hover) {
-  .map-mini-card:hover {
-    transform: translateY(-1px);
-  }
 }
 
 .map-mini-card:focus-within {
@@ -1644,7 +1539,7 @@ button {
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background var(--duration-short) var(--ease-move);
+  transition: background var(--duration-micro) var(--ease-move);
 }
 
 .venue-row:focus-visible {
@@ -2629,13 +2524,6 @@ button {
     right: var(--spacing-xl);
   }
 
-  .map-hud-bar {
-    height: 4.75rem;
-    padding: 0 var(--spacing-xl);
-    border-bottom-width: 3px;
-    box-shadow: none;
-  }
-
   .map-attribution {
     right: var(--spacing-xl);
     bottom: var(--spacing-xl);
@@ -2948,12 +2836,6 @@ time,
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   box-shadow: 0 6px 20px rgba(28, 25, 23, 0.14);
-}
-
-@media (hover: hover) {
-  .map-mini-card:hover {
-    transform: none;
-  }
 }
 
 .map-mini-card:focus-within {

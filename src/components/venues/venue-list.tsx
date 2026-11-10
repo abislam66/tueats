@@ -86,7 +86,14 @@ export function VenueRow({
 
   useEffect(() => {
     if (!selected || !rowRef.current) return;
-    rowRef.current.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    // An explicit "smooth" overrides the CSS reduced-motion rule, so check it here.
+    const reduce = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    rowRef.current.scrollIntoView({
+      block: "nearest",
+      behavior: reduce ? "auto" : "smooth",
+    });
   }, [selected]);
 
   const line = venuePlainLine(venue);
