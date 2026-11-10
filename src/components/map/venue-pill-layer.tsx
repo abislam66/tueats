@@ -8,16 +8,30 @@ import type {
 } from "maplibre-gl";
 
 import {
-  buildClusterPillIcon,
+  buildClusterBubbleIcon,
+  buildVenueDotIcon,
   buildVenuePillIcon,
-  clusterPillIconId,
+  clusterBubbleIconId,
+  PLATE_TIP_OFFSET_PX,
+  venueDotIconId,
   venuePillIconId,
   type VenuePillState,
   type VenuePillStatus,
 } from "@/lib/map/venue-pill-icon";
+import {
+  ALL_PLATES_MIN_ZOOM,
+  bestStatus,
+  clusterPriority,
+  pinPriority,
+  showsPlateAtOverview,
+} from "@/lib/map/venue-pin-rules";
 import { getPinStatus } from "@/lib/hours";
 import { useMinuteClock } from "@/lib/use-minute-clock";
 import { beforeIdFor, liftOverlaysAboveBasemap } from "@/lib/map/overlay-order";
+import {
+  DESKTOP_MEDIA_QUERY,
+  measureCurrentMobileSheetHeightPx,
+} from "@/lib/mobile-sheet-heights";
 import { CUISINES } from "@/config/cuisines";
 import { MAP_ZONES, type MapZoneKey } from "@/config/map-zones";
 import type { Venue } from "@/lib/venues";
@@ -29,30 +43,37 @@ function clusterSwatchColor(venue: Venue): string {
 }
 
 const SOURCE_ID = "venue-pills";
+const DOT_SOURCE_ID = "venue-dots";
 export const VENUE_PILL_LAYER_ID = "venue-pills-symbol";
+export const VENUE_DOT_LAYER_ID = "venue-dots-symbol";
+/** Every layer a tap on a venue can land on (plates win over dots). */
+export const VENUE_HIT_LAYER_IDS = [
+  VENUE_PILL_LAYER_ID,
+  VENUE_DOT_LAYER_ID,
+] as const;
 
-// Screen-pixel radius within which two pills are considered "the same
-// spot" and merged into one cluster badge, rather than left to silently
-// stack. Comfortably smaller than a minimum-width pill so genuinely
-// separate venues (with screen room between them) never merge.
-const CLUSTER_RADIUS_PX = 34;
+// Screen-pixel radius within which two plates are considered "the same
+// spot" and merged into one count bubble. Collision detection hides any
+// other overlap (the loser falls back to its dot), so this only has to
+// catch venues that genuinely share a spot.
+const CLUSTER_RADIUS_PX = 18;
 
 /**
- * With overlap allowed, several pills can share a pixel. MapLibre's own
- * ordering of `queryRenderedFeatures` results isn't a documented contract,
- * so pick the visually topmost hit ourselves using the same `priority`
- * field the layer is sorted by, rather than trusting `features[0]`.
+ * The hit a tap or hover means: a plate/bubble over a dot, then the
+ * lowest `priority` (= the one MapLibre placed first). Collision keeps
+ * plates from overlapping, but a plate can still sit over another
+ * venue's dot.
  */
 function topFeature(
   features: MapGeoJSONFeature[] | undefined,
 ): MapGeoJSONFeature | undefined {
   if (!features || features.length === 0) return undefined;
-  return features.reduce((top, feature) => {
-    const topPriority = (top.properties?.priority as number | undefined) ?? 0;
-    const featurePriority =
-      (feature.properties?.priority as number | undefined) ?? 0;
-    return featurePriority > topPriority ? feature : top;
-  });
+  const rank = (feature: MapGeoJSONFeature) =>
+    (feature.layer.id === VENUE_PILL_LAYER_ID ? 0 : 100) +
+    ((feature.properties?.priority as number | undefined) ?? 50);
+  return features.reduce((top, feature) =>
+    rank(feature) < rank(top) ? feature : top,
+  );
 }
 
 type VenueFeatureProps = {
@@ -60,6 +81,11 @@ type VenueFeatureProps = {
   id: string;
   priority: number;
   iconId: string;
+  /** Image used below ALL_PLATES_MIN_ZOOM — "" hides the plate there. */
+  lowIconId: string;
+  anchor: "bottom";
+  /** Drops the plate so its stem dot sits exactly on the venue dot. */
+  offset: [number, number];
 };
 
 type ClusterFeatureProps = {
@@ -69,6 +95,9 @@ type ClusterFeatureProps = {
   count: number;
   priority: number;
   iconId: string;
+  lowIconId: string;
+  anchor: "center";
+  offset: [number, number];
 };
 
 function pillState(
@@ -100,15 +129,16 @@ type RenderUnit =
       members: Venue[];
       anchor: { lng: number; lat: number };
       state: VenuePillState;
+      status: VenuePillStatus;
     };
 
 /**
  * Selected and hovered venues always stand alone (they need a stable
- * anchor for the mini-card / list-hover connection). Everything else gets
- * grouped by on-screen proximity: pills that would land within
- * `CLUSTER_RADIUS_PX` of each other — whether they're at the exact same
- * coordinates or just close enough to visually collide at the current
- * zoom — become one cluster badge instead of silently stacking.
+ * anchor for the mini-card / list-hover connection). Below
+ * ALL_PLATES_MIN_ZOOM, closed / unknown venues are dots only, so they are
+ * left out of clustering too. Everything else is grouped by on-screen
+ * proximity: plates within `CLUSTER_RADIUS_PX` of a group's first member
+ * become one count bubble.
  */
 function buildRenderUnits(
   map: MapLibreMap,
@@ -118,35 +148,30 @@ function buildRenderUnits(
   hoveredClusterKey: string | null,
   now: Date,
 ): RenderUnit[] {
-  const standalone: Venue[] = [];
-  const clusterable: Venue[] = [];
+  const lowZoom = map.getZoom() < ALL_PLATES_MIN_ZOOM;
+  const units: RenderUnit[] = [];
+  const clusterable: { venue: Venue; status: VenuePillStatus }[] = [];
   for (const venue of venues) {
-    if (venue.id === selectedId || venue.id === hoveredId) {
-      standalone.push(venue);
+    const status = getPinStatus(venue.hours, now);
+    const state = pillState(venue, selectedId, hoveredId);
+    if (
+      state !== "normal" ||
+      (lowZoom && !showsPlateAtOverview(status, state))
+    ) {
+      units.push({ kind: "venue", venue, state, status });
     } else {
-      clusterable.push(venue);
+      clusterable.push({ venue, status });
     }
   }
 
-  const units: RenderUnit[] = standalone.map((venue) => ({
-    kind: "venue",
-    venue,
-    state: pillState(venue, selectedId, hoveredId),
-    status: getPinStatus(venue.hours, now),
-  }));
-
-  const projected = clusterable.map((venue) => {
-    const point = map.project([venue.lng, venue.lat]);
-    return { venue, x: point.x, y: point.y };
+  const projected = clusterable.map((entry) => {
+    const point = map.project([entry.venue.lng, entry.venue.lat]);
+    return { ...entry, x: point.x, y: point.y };
   });
 
   // Anchored on each group's FIRST member, not "close to any current
-  // member" — a transitive/chained rule lets a dense run of venues (a
-  // food court where a dozen pins sit 0-50m apart in a line) merge into
-  // one sprawling mega-cluster even though the two ends never visually
-  // overlap. Anchoring bounds every group to CLUSTER_RADIUS_PX of one
-  // fixed point, so a chain of near-neighbors can't drag distant venues
-  // in with it.
+  // member" — a transitive rule lets a dense run of venues chain into one
+  // sprawling cluster even though the two ends never visually overlap.
   const groups: (typeof projected)[] = [];
   for (const point of projected) {
     const target = groups.find((group) => {
@@ -161,13 +186,8 @@ function buildRenderUnits(
 
   for (const group of groups) {
     if (group.length === 1) {
-      const venue = group[0]!.venue;
-      units.push({
-        kind: "venue",
-        venue,
-        state: "normal",
-        status: getPinStatus(venue.hours, now),
-      });
+      const { venue, status } = group[0]!;
+      units.push({ kind: "venue", venue, state: "normal", status });
       continue;
     }
     const members = group.map((p) => p.venue);
@@ -175,37 +195,44 @@ function buildRenderUnits(
     const lat = group.reduce((sum, p) => sum + p.venue.lat, 0) / group.length;
     const state: VenuePillState =
       clusterMemberIds(members) === hoveredClusterKey ? "hover" : "normal";
-    units.push({ kind: "cluster", members, anchor: { lng, lat }, state });
+    units.push({
+      kind: "cluster",
+      members,
+      anchor: { lng, lat },
+      state,
+      status: bestStatus(group.map((p) => p.status)),
+    });
   }
 
   return units;
 }
 
+function unitIconId(unit: RenderUnit): string {
+  return unit.kind === "venue"
+    ? venuePillIconId(unit.venue.id, unit.state, unit.venue.name, unit.status)
+    : clusterBubbleIconId(unit.members.length, unit.status, unit.state);
+}
+
 /**
- * Priority tiers, low to high: normal individual pill < cluster badge <
- * hovered individual pill < selected individual pill. Clusters sit above
- * plain pills (they represent more than one venue) but never bury a
- * hovered/selected pill, which — being pulled out of clustering entirely
- * (see `buildRenderUnits`) — always renders as its own pill anyway.
+ * Plate/bubble features. `priority` feeds `symbol-sort-key`; with
+ * collision on, MapLibre places LOWER keys first and they win (see
+ * venue-pin-rules.ts): selected > hovered > open > closing > closed.
  */
 function toFeatureCollection(units: RenderUnit[]) {
-  const base = Math.max(units.length, 1);
   return {
     type: "FeatureCollection" as const,
-    features: units.map((unit, index) => {
+    features: units.map((unit) => {
+      const iconId = unitIconId(unit);
       if (unit.kind === "venue") {
         const { venue, state, status } = unit;
-        const priority =
-          state === "selected"
-            ? base * 3 + index
-            : state === "hover"
-              ? base * 2 + index
-              : index;
         const properties: VenueFeatureProps = {
           kind: "venue",
           id: venue.id,
-          priority,
-          iconId: venuePillIconId(venue.id, state, venue.name, status),
+          priority: pinPriority(status, state),
+          iconId,
+          lowIconId: showsPlateAtOverview(status, state) ? iconId : "",
+          anchor: "bottom",
+          offset: [0, PLATE_TIP_OFFSET_PX],
         };
         return {
           type: "Feature" as const,
@@ -216,13 +243,16 @@ function toFeatureCollection(units: RenderUnit[]) {
           properties,
         };
       }
-      const { members, anchor, state } = unit;
+      const { members, anchor, status } = unit;
       const properties: ClusterFeatureProps = {
         kind: "cluster",
         memberIds: clusterMemberIds(members),
         count: members.length,
-        priority: base + index,
-        iconId: clusterPillIconId(members.length, state),
+        priority: clusterPriority(status),
+        iconId,
+        lowIconId: iconId,
+        anchor: "center",
+        offset: [0, 0],
       };
       return {
         type: "Feature" as const,
@@ -236,23 +266,53 @@ function toFeatureCollection(units: RenderUnit[]) {
   };
 }
 
+/** One dot per venue at its true coordinate — always shown, never collides. */
+function toDotCollection(venues: Venue[], now: Date) {
+  return {
+    type: "FeatureCollection" as const,
+    features: venues.map((venue) => {
+      const status = getPinStatus(venue.hours, now);
+      return {
+        type: "Feature" as const,
+        geometry: {
+          type: "Point" as const,
+          coordinates: [venue.lng, venue.lat],
+        },
+        properties: {
+          kind: "venue" as const,
+          id: venue.id,
+          priority: pinPriority(status, "normal"),
+          status,
+          iconId: venueDotIconId(status),
+        },
+      };
+    }),
+  };
+}
+
 type OpenCluster = { key: string; venues: Venue[]; x: number; y: number };
 
 /**
- * Venue markers as a single native MapLibre symbol layer. Each pill is an
- * opaque sprite with the venue name BAKED IN (venue-pill-icon.ts), one
- * image per venue × state, registered lazily as states are needed —
- * MapLibre paints a layer's icons first and its text-fields second, so a
- * live text-field would bleed a lower pill's name across the pill above
- * it (see Context/decisions.md, zone labels).
+ * Venue markers as two native MapLibre symbol layers:
  *
- * Overlap is allowed, but pills are no longer left to silently stack:
- * `buildRenderUnits` groups venues whose pills would land on the same
- * screen pixel into a single "N spots" cluster badge (same baked-pill
- * treatment, see `buildClusterPillIcon`) so nothing is ever fully and
- * permanently hidden. Clicking a cluster opens a small list card of its
- * members instead of selecting a venue directly; picking one from that
- * list selects it exactly as tapping its own pill would.
+ * - a dot layer — one 6px status dot per venue at its true coordinate,
+ *   always drawn (overlap allowed, placement ignored);
+ * - a plate layer — baked name plates and cluster count bubbles with
+ *   collision detection ON, so plates never overlap each other. Losers
+ *   simply aren't placed and their dot shows through. `symbol-sort-key`
+ *   decides who wins (selected > hovered > open > closing > closed).
+ *
+ * Below ALL_PLATES_MIN_ZOOM the plate layer's `icon-image` switches to
+ * `lowIconId`, which is empty for closed / unknown venues, so they read as
+ * dots at overview and become full plates from z16.
+ *
+ * Names stay baked into sprites (venue-pill-icon.ts): MapLibre paints a
+ * layer's icons before its text-fields, so live text would bleed across a
+ * neighbouring plate (see Context/decisions.md, zone labels).
+ *
+ * Tapping a count bubble zooms in until its venues separate; when they
+ * share a spot (no zoom would split them) it opens the members list card
+ * instead, and picking a row selects that venue.
  */
 export function VenuePillLayer({
   map,
@@ -314,10 +374,25 @@ export function VenuePillLayer({
     // event already fired (see VenueMap), so the style is guaranteed ready
     // here — no gating on isStyleLoaded()/"load" needed (see venue-map.tsx
     // history: that gate silently dead-ends for late-mounted layers).
-    map.addSource(SOURCE_ID, {
-      type: "geojson",
-      data: { type: "FeatureCollection", features: [] },
-    });
+    const empty = { type: "FeatureCollection" as const, features: [] };
+    map.addSource(DOT_SOURCE_ID, { type: "geojson", data: empty });
+    map.addSource(SOURCE_ID, { type: "geojson", data: empty });
+
+    map.addLayer(
+      {
+        id: VENUE_DOT_LAYER_ID,
+        type: "symbol",
+        source: DOT_SOURCE_ID,
+        layout: {
+          "icon-image": ["get", "iconId"],
+          "icon-anchor": "center",
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
+          "symbol-sort-key": ["get", "priority"],
+        },
+      },
+      beforeIdFor(map, VENUE_DOT_LAYER_ID),
+    );
 
     map.addLayer(
       {
@@ -325,26 +400,20 @@ export function VenuePillLayer({
         type: "symbol",
         source: SOURCE_ID,
         layout: {
-          "icon-image": ["get", "iconId"],
-          "icon-padding": 0,
-          "icon-anchor": "bottom",
-          "icon-allow-overlap": true,
-          // Sprites are drawn at the old z18.5 text size; this reproduces
-          // the former text-size zoom ramp, scaling the whole pill about
-          // its stem tip.
-          "icon-size": [
-            "interpolate",
-            ["linear"],
+          "icon-image": [
+            "step",
             ["zoom"],
-            14,
-            10 / 13,
-            15.5,
-            11 / 13,
-            17,
-            12 / 13,
-            18.5,
-            1,
+            ["get", "lowIconId"],
+            ALL_PLATES_MIN_ZOOM,
+            ["get", "iconId"],
           ],
+          // Sprites already carry a transparent margin around the plate,
+          // so collision boxes keep a few px between neighbours.
+          "icon-padding": 0,
+          "icon-anchor": ["get", "anchor"],
+          "icon-offset": ["get", "offset"],
+          "icon-allow-overlap": false,
+          "icon-ignore-placement": false,
           "symbol-sort-key": ["get", "priority"],
         },
       },
@@ -352,71 +421,137 @@ export function VenuePillLayer({
     );
     liftOverlaysAboveBasemap(map);
 
+    function hitAt(point: { x: number; y: number }) {
+      if (!map) return undefined;
+      const layers = VENUE_HIT_LAYER_IDS.filter((id) => map.getLayer(id));
+      if (layers.length === 0) return undefined;
+      return topFeature(
+        map.queryRenderedFeatures([point.x, point.y], { layers: [...layers] }),
+      );
+    }
+
+    function membersOf(key: string): Venue[] {
+      return key
+        .split(",")
+        .filter(Boolean)
+        .map((id) => venuesRef.current.find((venue) => venue.id === id))
+        .filter((venue): venue is Venue => Boolean(venue));
+    }
+
+    /** Zoom until the members separate; list them if they never would. */
+    function expandCluster(key: string, point: { x: number; y: number }) {
+      if (!map) return;
+      const members = membersOf(key);
+      if (members.length === 0) return;
+      const west = Math.min(...members.map((v) => v.lng));
+      const east = Math.max(...members.map((v) => v.lng));
+      const south = Math.min(...members.map((v) => v.lat));
+      const north = Math.max(...members.map((v) => v.lat));
+      const a = map.project([west, south]);
+      const b = map.project([east, north]);
+      const spreadAtMax =
+        Math.hypot(a.x - b.x, a.y - b.y) *
+        2 ** (map.getMaxZoom() - map.getZoom());
+      if (
+        spreadAtMax <= CLUSTER_RADIUS_PX ||
+        map.getZoom() >= map.getMaxZoom() - 0.1
+      ) {
+        setOpenCluster((current) =>
+          current?.key === key
+            ? null
+            : { key, venues: members, x: point.x, y: point.y },
+        );
+        return;
+      }
+      setOpenCluster(null);
+      const desktop = window.matchMedia(DESKTOP_MEDIA_QUERY).matches;
+      const reduce = window.matchMedia(
+        "(prefers-reduced-motion: reduce)",
+      ).matches;
+      const pad = 72;
+      map.fitBounds(
+        [
+          [west, south],
+          [east, north],
+        ],
+        {
+          padding: {
+            top: pad,
+            right: pad,
+            left: pad,
+            bottom: pad + (desktop ? 0 : measureCurrentMobileSheetHeightPx()),
+          },
+          maxZoom: map.getMaxZoom(),
+          duration: reduce ? 0 : 450,
+        },
+      );
+    }
+
+    let hovering: string | null = null;
+    function onMouseMove(e: { point: { x: number; y: number } }) {
+      if (!map) return;
+      const feature = hitAt(e.point);
+      const next = !feature
+        ? null
+        : feature.properties?.kind === "cluster"
+          ? `cluster:${String(feature.properties?.memberIds ?? "")}`
+          : `venue:${String(feature.properties?.id ?? "")}`;
+      if (next === hovering) return;
+      hovering = next;
+      map.getCanvas().style.cursor = next ? "pointer" : "";
+      if (next?.startsWith("cluster:")) {
+        onHoverRef.current(null);
+        setHoveredClusterKey(next.slice("cluster:".length));
+      } else {
+        setHoveredClusterKey(null);
+        onHoverRef.current(next ? next.slice("venue:".length) : null);
+      }
+    }
+
+    function onMouseOut() {
+      if (!map || hovering === null) return;
+      hovering = null;
+      map.getCanvas().style.cursor = "";
+      onHoverRef.current(null);
+      setHoveredClusterKey(null);
+    }
+
+    function onClick(e: { point: { x: number; y: number } }) {
+      const feature = hitAt(e.point);
+      if (!feature) {
+        setOpenCluster(null);
+        return;
+      }
+      if (feature.properties?.kind === "cluster") {
+        expandCluster(String(feature.properties?.memberIds ?? ""), e.point);
+        return;
+      }
+      setOpenCluster(null);
+      const id = feature.properties?.id as string | undefined;
+      if (id) onSelectRef.current(id);
+    }
+
     function closePopover() {
       setOpenCluster(null);
     }
 
-    function closePopoverOnOutsideClick(e: {
-      point: { x: number; y: number };
-    }) {
-      if (!map) return;
-      const hits = map.queryRenderedFeatures([e.point.x, e.point.y], {
-        layers: [VENUE_PILL_LAYER_ID],
-      });
-      if (hits.length === 0) closePopover();
-    }
-
-    map.on("mouseenter", VENUE_PILL_LAYER_ID, () => {
-      map.getCanvas().style.cursor = "pointer";
-    });
-    map.on("mouseleave", VENUE_PILL_LAYER_ID, () => {
-      map.getCanvas().style.cursor = "";
-      onHoverRef.current(null);
-      setHoveredClusterKey(null);
-    });
-    map.on("mousemove", VENUE_PILL_LAYER_ID, (e) => {
-      const feature = topFeature(e.features as MapGeoJSONFeature[] | undefined);
-      if (!feature) return;
-      if (feature.properties?.kind === "cluster") {
-        onHoverRef.current(null);
-        setHoveredClusterKey(String(feature.properties?.memberIds ?? ""));
-      } else {
-        setHoveredClusterKey(null);
-        const id = feature.properties?.id as string | undefined;
-        if (id) onHoverRef.current(id);
-      }
-    });
-    map.on("click", VENUE_PILL_LAYER_ID, (e) => {
-      const feature = topFeature(e.features as MapGeoJSONFeature[] | undefined);
-      if (!feature) return;
-      if (feature.properties?.kind === "cluster") {
-        const key = String(feature.properties?.memberIds ?? "");
-        const ids = key.split(",").filter(Boolean);
-        const members = ids
-          .map((id) => venuesRef.current.find((venue) => venue.id === id))
-          .filter((venue): venue is Venue => Boolean(venue));
-        if (members.length === 0) return;
-        setOpenCluster((current) =>
-          current?.key === key
-            ? null
-            : { key, venues: members, x: e.point.x, y: e.point.y },
-        );
-      } else {
-        setOpenCluster(null);
-        const id = feature.properties?.id as string | undefined;
-        if (id) onSelectRef.current(id);
-      }
-    });
-    map.on("click", closePopoverOnOutsideClick);
+    map.on("mousemove", onMouseMove);
+    map.on("mouseout", onMouseOut);
+    map.on("click", onClick);
     map.on("movestart", closePopover);
 
     return () => {
+      map.off("mousemove", onMouseMove);
+      map.off("mouseout", onMouseOut);
+      map.off("click", onClick);
       map.off("movestart", closePopover);
-      map.off("click", closePopoverOnOutsideClick);
       if (!map.getStyle()) return;
-      if (map.getLayer(VENUE_PILL_LAYER_ID))
-        map.removeLayer(VENUE_PILL_LAYER_ID);
-      if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
+      for (const id of [VENUE_PILL_LAYER_ID, VENUE_DOT_LAYER_ID]) {
+        if (map.getLayer(id)) map.removeLayer(id);
+      }
+      for (const id of [SOURCE_ID, DOT_SOURCE_ID]) {
+        if (map.getSource(id)) map.removeSource(id);
+      }
     };
   }, [map]);
 
@@ -433,41 +568,40 @@ export function VenuePillLayer({
         hoveredClusterKey,
         now,
       );
-      // Register each pill/cluster sprite for the state it is about to
-      // render in. Already-built sprites stay cached on the map instance;
-      // ids embed the venue name (or spot count), so a rename or a
-      // cluster growing/shrinking simply mints a fresh image.
+      // Register each sprite for the state it is about to render in.
+      // Already-built sprites stay cached on the map instance; ids embed
+      // the venue name (or count + status), so a rename or a cluster
+      // growing/shrinking simply mints a fresh image.
       for (const unit of units) {
-        if (unit.kind === "venue") {
-          const iconId = venuePillIconId(
-            unit.venue.id,
-            unit.state,
-            unit.venue.name,
-            unit.status,
-          );
-          if (!map.hasImage(iconId)) {
-            const asset = buildVenuePillIcon(
-              unit.venue.name,
-              unit.state,
-              unit.status,
-            );
-            map.addImage(iconId, asset, { pixelRatio: asset.pixelRatio });
-          }
-        } else {
-          const iconId = clusterPillIconId(unit.members.length, unit.state);
-          if (!map.hasImage(iconId)) {
-            const asset = buildClusterPillIcon(unit.members.length, unit.state);
-            map.addImage(iconId, asset, { pixelRatio: asset.pixelRatio });
-          }
-        }
+        const iconId = unitIconId(unit);
+        if (map.hasImage(iconId)) continue;
+        const asset =
+          unit.kind === "venue"
+            ? buildVenuePillIcon(unit.venue.name, unit.state, unit.status)
+            : buildClusterBubbleIcon(
+                unit.members.length,
+                unit.status,
+                unit.state,
+              );
+        map.addImage(iconId, asset, { pixelRatio: asset.pixelRatio });
       }
 
-      const source = map.getSource(SOURCE_ID) as GeoJSONSource;
-      source.setData(toFeatureCollection(units));
+      const dots = toDotCollection(venues, now);
+      for (const feature of dots.features) {
+        const { iconId, status } = feature.properties;
+        if (map.hasImage(iconId)) continue;
+        const asset = buildVenueDotIcon(status);
+        map.addImage(iconId, asset, { pixelRatio: asset.pixelRatio });
+      }
+
+      (map.getSource(DOT_SOURCE_ID) as GeoJSONSource).setData(dots);
+      (map.getSource(SOURCE_ID) as GeoJSONSource).setData(
+        toFeatureCollection(units),
+      );
 
       // A pan/zoom can un-cluster (or re-cluster) venues; if the open
       // popover's exact member set no longer forms a cluster, close it
-      // rather than let it point at a badge that's no longer there.
+      // rather than let it point at a bubble that's no longer there.
       setOpenCluster((current) => {
         if (!current) return current;
         const stillClustered = units.some(

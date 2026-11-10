@@ -13,6 +13,7 @@ export const OVERLAY_PAINT_ORDER = [
   "map-zones-hit",
   "campus-dining-symbol",
   "map-zones-label",
+  "venue-dots-symbol",
   "venue-pills-symbol",
 ] as const;
 

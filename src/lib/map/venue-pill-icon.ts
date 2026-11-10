@@ -8,30 +8,37 @@
  * bleed through an overlapping plate — baked sprites occlude cleanly
  * instead (same fix as zone-label-icon.ts).
  *
- * Chrome matches the zone labels: square plate, hard ink outline, flat
- * offset shadow, leader-line-and-dot stem. Dining pins share that
- * silhouette at 2/3 size with a white/stone palette.
+ * Venue plates: 12px/700 label, 4×8 padding, 4px radius, flat offset
+ * shadow, leader-line-and-dot stem; names truncate at ~14 characters.
+ * Plates that lose a collision (or closed / unknown venues at overview
+ * zoom) collapse to 6px status dots; clusters are round count bubbles.
+ * Dining pins keep the square silhouette at 2/3 size, white/stone palette.
  *
  * The neutral campus-dining variant keeps the label-free 9-slice path:
  * its three pins never overlap each other, and its text stays a GL
  * `text-field`.
  */
 
+import { truncateLabel } from "./venue-pin-rules";
+
 const SCALE = 3; // raster oversample for crisp rendering at typical zoom
 const PILL_WIDTH = 64; // dining 9-slice base width
 const PILL_HEIGHT = 40; // dining 9-slice plate height
-// Cherry venue/cluster plates are sized close to their text so dense
-// zones stop feeling congested: a small width floor, and a plate only
-// tall enough to seat the 13px label with a little air above and below.
-// The dining 9-slice keeps the larger PILL_WIDTH/PILL_HEIGHT above — its
-// stretch bands are tuned to those — so only the baked name plates use
-// these two.
-const VENUE_PILL_MIN_WIDTH = 40;
-const VENUE_PILL_HEIGHT = 26;
+// Venue plates hug their text: 12px/700 label, 4px top/bottom and 8px
+// side padding, 4px corner radius. The dining 9-slice keeps the larger
+// PILL_WIDTH/PILL_HEIGHT above — its stretch bands are tuned to those.
+const LABEL_FONT_SIZE = 12;
+const LABEL_PAD_X = 8;
+const LABEL_PAD_Y = 4;
+const PLATE_RADIUS = 4;
+const VENUE_PILL_MIN_WIDTH = 28;
+const VENUE_PILL_HEIGHT = LABEL_FONT_SIZE + LABEL_PAD_Y * 2;
 const STEM_LINE_WIDTH = 2.5;
 const STEM_LINE_HEIGHT = 9;
 const STEM_DOT_RADIUS = 3;
 const BORDER = 1.25;
+/** Sprite bottom edge → stem-dot centre (design px), for `icon-offset`. */
+export const PLATE_TIP_OFFSET_PX = STEM_DOT_RADIUS + BORDER;
 const SHADOW_OFFSET = 2;
 const SHADOW_COLOR = "rgba(23, 19, 16, 0.4)";
 // Margin above/beside the plate so the selected halo and shadow aren't
@@ -53,29 +60,11 @@ const VENUE_FILL = "#9D2235"; // --color-cherry
 const VENUE_HALO = "rgba(157, 34, 53, 0.28)";
 const VENUE_TEXT = "#ffffff";
 
-// Drawn at the old z18.5 GL text size; the layer's zoom-scaled
-// `icon-size` shrinks the whole sprite at lower zooms.
-const LABEL_FONT_SIZE = 13;
-// Space between the text and each vertical plate edge. Small and
-// comfortable — enough to breathe, not the roomy chip it was.
-const LABEL_PAD_X = 11;
-// Longest label drawn on a plate (design px); longer names end in "…" so a
-// 70-character name can't produce a plate wider than the screen.
-const LABEL_MAX_WIDTH = 190;
-
-/** Shortens `text` with an ellipsis until it fits `maxWidth`. */
-export function fitLabel(
-  measure: (text: string) => number,
-  text: string,
-  maxWidth: number,
-): string {
-  if (measure(text) <= maxWidth) return text;
-  let end = text.length;
-  while (end > 1 && measure(`${text.slice(0, end).trimEnd()}…`) > maxWidth) {
-    end -= 1;
-  }
-  return `${text.slice(0, end).trimEnd()}…`;
-}
+// Status dot (closed / unknown at overview, and every plate that lost a
+// collision) and the cluster count bubble.
+const DOT_DIAMETER = 6;
+const DOT_BORDER = 1;
+const BUBBLE_DIAMETER = 22;
 
 // Campus-dining info pins: white surface + the campus-building stroke
 // stone, so they read as map furniture — never a tappable cherry venue.
@@ -92,7 +81,28 @@ type PillStyle = {
   halo?: string;
   /** Stem line + dot outline. Defaults to the plate's ink outline. */
   stemStroke?: string;
+  /** Plate corner radius (design px). Square when omitted. */
+  radius?: number;
 };
+
+/** Rounded-rect path (no `ctx.roundRect` dependency). */
+function rectPath(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+) {
+  const rr = Math.max(0, Math.min(r, w / 2, h / 2));
+  ctx.beginPath();
+  ctx.moveTo(x + rr, y);
+  ctx.arcTo(x + w, y, x + w, y + h, rr);
+  ctx.arcTo(x + w, y + h, x, y + h, rr);
+  ctx.arcTo(x, y + h, x, y, rr);
+  ctx.arcTo(x, y, x + w, y, rr);
+  ctx.closePath();
+}
 
 export type PillIconAsset = {
   width: number;
@@ -132,29 +142,22 @@ export function venuePillIconId(
 }
 
 /**
- * Image id for a cluster badge — several venues occupying (near-)identical
- * screen space, shown as one "N spots" pill instead of silently stacking.
- * Keyed only by count + state: the label text depends on nothing else, so
- * clusters of the same size reuse one baked sprite regardless of which
- * venues happen to be in them.
+ * Image id for a cluster count bubble — several venues sharing (nearly)
+ * the same screen spot, shown as one round "3" instead of stacking.
+ * Keyed by count + best member status + state, so equal clusters reuse
+ * one sprite regardless of which venues are in them.
  */
-export function clusterPillIconId(
+export function clusterBubbleIconId(
   count: number,
+  status: VenuePillStatus,
   state: VenuePillState,
 ): string {
-  return `cluster-pill/${state}/${count}`;
+  return `cluster-bubble/${status}/${state}/${count}`;
 }
 
-export function clusterPillLabel(count: number): string {
-  return `${count} spots`;
-}
-
-/** Same baked-pill treatment as a venue, labeled with a spot count. */
-export function buildClusterPillIcon(
-  count: number,
-  state: VenuePillState,
-): VenuePillIconAsset {
-  return buildVenuePillIcon(clusterPillLabel(count), state);
+/** Image id for a 6px status dot (no name — one per status). */
+export function venueDotIconId(status: VenuePillStatus): string {
+  return `venue-dot/${status}`;
 }
 
 // Existing tokens only: cherry, white surface, canvas, ink-secondary, border.
@@ -210,6 +213,7 @@ function venuePillStyle(
     dashed: s.dashed && state !== "selected",
     halo: state === "selected" ? VENUE_HALO : undefined,
     stemStroke: s.stem,
+    radius: PLATE_RADIUS,
   };
 }
 
@@ -230,19 +234,28 @@ function paintPill(
   pillHeight: number,
   style: PillStyle,
 ) {
-  const { fill, stroke, borderWidth, halo, dashed, stemStroke = INK } = style;
+  const {
+    fill,
+    stroke,
+    borderWidth,
+    halo,
+    dashed,
+    stemStroke = INK,
+    radius = 0,
+  } = style;
   const plateX = PAD;
   const plateY = PAD;
 
   // Selected-only halo — a soft cherry ring outside the ink border so
   // the selected plate reads differently from a merely hovered one.
   if (halo) {
-    ctx.beginPath();
-    ctx.rect(
+    rectPath(
+      ctx,
       plateX - HALO_WIDTH,
       plateY - HALO_WIDTH,
       pillWidth + HALO_WIDTH * 2,
       pillHeight + HALO_WIDTH * 2,
+      radius + HALO_WIDTH,
     );
     ctx.fillStyle = halo;
     ctx.fill();
@@ -250,23 +263,25 @@ function paintPill(
 
   // Hard offset shadow — solid, no blur, same pixel-UI treatment as
   // zone labels. Drawn first so the plate and stem sit on top of it.
-  ctx.beginPath();
-  ctx.rect(
+  rectPath(
+    ctx,
     plateX + SHADOW_OFFSET,
     plateY + SHADOW_OFFSET,
     pillWidth - BORDER,
     pillHeight - BORDER,
+    radius,
   );
   ctx.fillStyle = SHADOW_COLOR;
   ctx.fill();
 
-  // Square plate — fill + ink outline on all sides.
-  ctx.beginPath();
-  ctx.rect(
+  // Plate — fill + outline on all sides.
+  rectPath(
+    ctx,
     plateX + borderWidth / 2,
     plateY + borderWidth / 2,
     pillWidth - borderWidth,
     pillHeight - borderWidth,
+    radius,
   );
   ctx.fillStyle = fill;
   ctx.fill();
@@ -308,11 +323,9 @@ export function buildVenuePillIcon(
 
   const font = labelFont();
   ctx.font = font;
-  const label = fitLabel(
-    (text) => ctx.measureText(text).width,
-    name,
-    LABEL_MAX_WIDTH,
-  );
+  // Plates carry at most ~14 characters; the full name stays in the list,
+  // the mini-card and the live-region announcement.
+  const label = truncateLabel(name);
   const textWidth = ctx.measureText(label).width;
   const pillWidth = Math.max(
     VENUE_PILL_MIN_WIDTH,
@@ -343,6 +356,96 @@ export function buildVenuePillIcon(
     data: imageData.data,
     pixelRatio: SCALE,
   };
+}
+
+function freshCanvas(sizeDesign: number) {
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.ceil(sizeDesign * SCALE);
+  canvas.height = Math.ceil(sizeDesign * SCALE);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("2D canvas context unavailable");
+  ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
+  return { canvas, ctx };
+}
+
+function toAsset(
+  canvas: HTMLCanvasElement,
+  ctx: CanvasRenderingContext2D,
+): VenuePillIconAsset {
+  return {
+    width: canvas.width,
+    height: canvas.height,
+    data: ctx.getImageData(0, 0, canvas.width, canvas.height).data,
+    pixelRatio: SCALE,
+  };
+}
+
+/**
+ * 6px status dot, centered on the venue coordinate (`icon-anchor:
+ * "center"`). Same fills/outlines as the plates so a dot reads as a
+ * collapsed plate of the same state.
+ */
+export function buildVenueDotIcon(status: VenuePillStatus): VenuePillIconAsset {
+  const size = DOT_DIAMETER + DOT_BORDER * 2;
+  const { canvas, ctx } = freshCanvas(size);
+  const s = STATUS_STYLES[status];
+  ctx.globalAlpha = s.alpha ?? 1;
+  ctx.beginPath();
+  ctx.arc(size / 2, size / 2, DOT_DIAMETER / 2, 0, Math.PI * 2);
+  ctx.fillStyle = s.fill;
+  ctx.fill();
+  ctx.lineWidth = DOT_BORDER;
+  // The unknown plate's pale dashed border would vanish at 6px.
+  ctx.strokeStyle = status === "unknown" ? INK_SECONDARY : s.stroke;
+  ctx.stroke();
+  return toAsset(canvas, ctx);
+}
+
+/** Round count bubble for a cluster ("3"), styled by its best member. */
+export function buildClusterBubbleIcon(
+  count: number,
+  status: VenuePillStatus,
+  state: VenuePillState,
+): VenuePillIconAsset {
+  const label = String(count);
+  const font = labelFont();
+  const probe = document.createElement("canvas").getContext("2d");
+  if (probe) probe.font = font;
+  const textWidth = probe ? probe.measureText(label).width : label.length * 7;
+  const diameter = Math.max(BUBBLE_DIAMETER, Math.ceil(textWidth + 10));
+  const size = diameter + PAD * 2;
+  const { canvas, ctx } = freshCanvas(size);
+  ctx.font = font;
+
+  const s = STATUS_STYLES[status];
+  const active = state !== "normal";
+  const c = size / 2;
+  ctx.globalAlpha = s.alpha ?? 1;
+  ctx.beginPath();
+  ctx.arc(
+    c + SHADOW_OFFSET / 2,
+    c + SHADOW_OFFSET / 2,
+    diameter / 2,
+    0,
+    Math.PI * 2,
+  );
+  ctx.fillStyle = SHADOW_COLOR;
+  ctx.fill();
+
+  const border = active ? Math.max(s.border, 2.25) : s.border;
+  ctx.beginPath();
+  ctx.arc(c, c, diameter / 2 - border / 2, 0, Math.PI * 2);
+  ctx.fillStyle = s.fill;
+  ctx.fill();
+  ctx.lineWidth = border;
+  ctx.strokeStyle = status === "unknown" ? INK_SECONDARY : s.stroke;
+  ctx.stroke();
+
+  ctx.fillStyle = s.text;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(label, c, c + 0.5);
+  return toAsset(canvas, ctx);
 }
 
 // ---------------------------------------------------------------------------

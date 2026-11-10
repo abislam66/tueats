@@ -16,8 +16,9 @@ import {
 } from "@/components/map/map-zone-layer";
 import {
   VenuePillLayer,
-  VENUE_PILL_LAYER_ID,
+  VENUE_HIT_LAYER_IDS,
 } from "@/components/map/venue-pill-layer";
+import { declutterBasemap } from "@/lib/map/basemap-declutter";
 import { OpenStatus } from "@/components/venues/venue-bits";
 import {
   MAP_ZONE_KEYS,
@@ -263,9 +264,12 @@ export function VenueMap({
       });
 
       instance.on("click", (e) => {
-        if (instance.getLayer(VENUE_PILL_LAYER_ID)) {
+        const venueLayers = VENUE_HIT_LAYER_IDS.filter((id) =>
+          instance.getLayer(id),
+        );
+        if (venueLayers.length > 0) {
           const hits = instance.queryRenderedFeatures(e.point, {
-            layers: [VENUE_PILL_LAYER_ID],
+            layers: [...venueLayers],
           });
           if (hits.length > 0) return;
         }
@@ -296,6 +300,20 @@ export function VenueMap({
       setMap(null);
     };
   }, []);
+
+  // Basemap down to small muted street names; building / POI / place
+  // labels and the campus-building overlay's text are hidden. Re-run on
+  // every style change so late-added label layers are caught too
+  // (declutterBasemap only writes when something differs).
+  useEffect(() => {
+    if (!map) return;
+    const run = () => declutterBasemap(map);
+    run();
+    map.on("styledata", run);
+    return () => {
+      map.off("styledata", run);
+    };
+  }, [map]);
 
   useEffect(() => {
     if (!map) return;
