@@ -9,16 +9,19 @@ import {
 } from "@/components/reviews/venue-reviews";
 import { AddVenuePhotoForm } from "@/components/venues/add-venue-photo-form";
 import { ReportProblemForm } from "@/components/venues/report-problem-form";
-import {
-  CuisineTags,
-  HalalTag,
-  OpenStatus,
-  PaymentTag,
-} from "@/components/venues/venue-bits";
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
+import { HalalTag, PaymentTag } from "@/components/venues/venue-bits";
 import { VenuePhotoGallery } from "@/components/venues/venue-photo-gallery";
 import { AnalyticsEvent } from "@/lib/analytics";
-import { WEEKDAY_KEYS, type VenueHours } from "@/lib/hours";
+import {
+  campusWeekday,
+  formatClockTime,
+  getDetailStatus,
+  WEEKDAY_KEYS,
+  type VenueHours,
+} from "@/lib/hours";
 import { googleMapsDirectionsUrl } from "@/lib/maps";
+import { venuePlainLine } from "@/lib/venue-groups";
 import { venueLocationText, type Venue } from "@/lib/venues";
 
 const DAY_LABELS = {
@@ -43,13 +46,18 @@ function displayTime(value: string): string {
 
 function HoursTable({ hours }: { hours: VenueHours | null }) {
   if (!hours) return <p className="unknown-value">Hours unknown</p>;
+  const today = campusWeekday();
   return (
     <dl className="hours-list">
       {WEEKDAY_KEYS.map((day) => {
         const ranges = hours[day] ?? [];
+        const isToday = day === today;
         return (
-          <div key={day}>
-            <dt>{DAY_LABELS[day]}</dt>
+          <div className={isToday ? "hours-today" : undefined} key={day}>
+            <dt>
+              {DAY_LABELS[day]}
+              {isToday ? <span className="sr-only"> (today)</span> : null}
+            </dt>
             <dd>
               {ranges.length
                 ? ranges
@@ -67,6 +75,83 @@ function HoursTable({ hours }: { hours: VenueHours | null }) {
   );
 }
 
+/** The one big answer: open until when, and how long is left. */
+function StatusCard({ venue }: { venue: Venue }) {
+  const status = getDetailStatus(venue.hours);
+  return (
+    <section aria-label="Open status" className="status-card">
+      {status.kind === "open" ? (
+        <>
+          <p className="status-card-lead is-open">Open now, until</p>
+          <p className="status-card-time">
+            <time>{formatClockTime(status.closesAt)}</time>
+          </p>
+          <p
+            className={
+              status.closingSoon
+                ? "status-card-left is-warning"
+                : "status-card-left"
+            }
+          >
+            {status.left}
+          </p>
+        </>
+      ) : status.kind === "closed" ? (
+        <>
+          <p className="status-card-lead">
+            {status.opensAt
+              ? `Closed now, opens${status.when ? ` ${status.when}` : ""}`
+              : "Closed now"}
+          </p>
+          {status.opensAt ? (
+            <p className="status-card-time is-closed">
+              <time>{formatClockTime(status.opensAt)}</time>
+            </p>
+          ) : null}
+        </>
+      ) : (
+        <>
+          <p className="status-card-lead">Hours unknown</p>
+          <p className="status-card-left">
+            Check with the place before you go.
+          </p>
+        </>
+      )}
+      <a
+        className="button button-primary status-card-cta"
+        href={googleMapsDirectionsUrl(venue)}
+        rel="noreferrer"
+        target="_blank"
+      >
+        Get directions
+      </a>
+      <p className="status-card-note">
+        Hours are a guide. Schedules can change.
+      </p>
+    </section>
+  );
+}
+
+function SignInPrompt({
+  next,
+  authError,
+}: {
+  next: string;
+  authError: boolean;
+}) {
+  return (
+    <div className="sign-in-prompt">
+      <p>Sign in to rate this place or add a photo.</p>
+      {authError ? (
+        <p className="form-error">
+          Sign-in didn&rsquo;t go through. Try again.
+        </p>
+      ) : null}
+      <GoogleSignInButton next={next} />
+    </div>
+  );
+}
+
 export function VenueDetail({
   venue,
   backPath,
@@ -74,13 +159,15 @@ export function VenueDetail({
   ownRating,
   userId,
   isAdmin,
+  authError = false,
 }: {
   venue: Venue;
   backPath: string;
   reviews: PublicReview[];
   ownRating: OwnRating | null;
-  userId: string;
+  userId: string | null;
   isAdmin: boolean;
+  authError?: boolean;
 }) {
   const verified = venue.lastVerifiedAt
     ? new Intl.DateTimeFormat("en-US", {
@@ -90,8 +177,9 @@ export function VenueDetail({
         timeZone: "UTC",
       }).format(new Date(`${venue.lastVerifiedAt}T12:00:00Z`))
     : null;
-  const location = venueLocationText(venue);
+  const line = venuePlainLine(venue) || venueLocationText(venue).text;
   const canWrite = venue.status !== "retired";
+  const retired = venue.status === "retired";
 
   return (
     <div className="public-page">
@@ -102,10 +190,10 @@ export function VenueDetail({
       <SiteHeader />
       <main className="detail-page">
         <Link className="back-link" href={backPath}>
-          ← Back to explore
+          Back to the map
         </Link>
 
-        {venue.status === "retired" ? (
+        {retired ? (
           <div className="retired-banner">
             <strong>This place has closed.</strong>
             <span>
@@ -115,21 +203,26 @@ export function VenueDetail({
         ) : null}
 
         <header className="detail-hero">
-          <p className="eyebrow">{venue.type}</p>
           <h1>{venue.name}</h1>
-          <div className="detail-status">
+          <p className="detail-line">{line}</p>
+          {venue.acceptsCard === false || venue.isHalal ? (
             <div className="detail-tags">
-              <CuisineTags cuisines={venue.cuisines} />
               <PaymentTag card={venue.acceptsCard} />
               <HalalTag isHalal={venue.isHalal} />
             </div>
-            <OpenStatus venue={venue} />
-          </div>
+          ) : null}
         </header>
+
+        {retired ? null : <StatusCard venue={venue} />}
+
+        <section className="detail-section">
+          <h2>Usual hours</h2>
+          <HoursTable hours={venue.hours} />
+        </section>
 
         <VenuePhotoGallery slug={venue.slug} venueName={venue.name} />
 
-        {canWrite ? (
+        {canWrite && userId ? (
           <div className="add-photo-slot">
             <AddVenuePhotoForm venueId={venue.id} />
           </div>
@@ -140,6 +233,9 @@ export function VenueDetail({
           isAdmin={isAdmin}
           ownRating={ownRating}
           reviews={reviews}
+          signIn={
+            <SignInPrompt authError={authError} next={`/eat/${venue.slug}`} />
+          }
           summary={venue.studentRating}
           userId={userId}
           venueId={venue.id}
@@ -152,35 +248,13 @@ export function VenueDetail({
           </section>
         ) : null}
 
-        <section className="detail-section">
-          <h2>Location</h2>
-          <p>{location.text}</p>
-          <a
-            className="text-link directions-link"
-            href={googleMapsDirectionsUrl(venue)}
-            rel="noreferrer"
-            target="_blank"
-          >
-            Get directions <span aria-hidden="true">↗</span>
-          </a>
-        </section>
-
-        <section className="detail-section">
-          <h2>Usual hours</h2>
-          <p className="soft-hours-note">
-            Schedules can change. Treat these as a guide.
-          </p>
-          <HoursTable hours={venue.hours} />
-        </section>
-
         <section className="verification-block">
-          <div>
-            <span className="eyebrow">Last verified</span>
-            <strong>{verified ?? "Not yet verified"}</strong>
-          </div>
-          {venue.status !== "retired" ? (
+          <p className="verification-date">
+            Last verified <strong>{verified ?? "not yet"}</strong>
+          </p>
+          {retired ? null : (
             <ReportProblemForm venueId={venue.id} venueName={venue.name} />
-          ) : null}
+          )}
         </section>
       </main>
     </div>

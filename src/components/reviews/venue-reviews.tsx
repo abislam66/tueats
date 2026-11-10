@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { usePostHog } from "posthog-js/react";
 
 import { deleteRating, submitRating } from "@/actions/ratings";
@@ -40,14 +40,18 @@ export function VenueReviews({
   userId,
   isAdmin,
   canWrite,
+  signIn,
 }: {
   venueId: string;
   summary: StudentRatingSummary | null;
   reviews: PublicReview[];
   ownRating: OwnRating | null;
-  userId: string;
+  /** null when signed out — reviews stay readable, writing needs sign-in. */
+  userId: string | null;
   isAdmin: boolean;
   canWrite: boolean;
+  /** Shown instead of the composer when signed out. */
+  signIn?: ReactNode;
 }) {
   const visible = reviews.filter(
     (review) => review.status === "active" || review.userId === userId,
@@ -55,7 +59,7 @@ export function VenueReviews({
 
   return (
     <section className="detail-section reviews-section">
-      <h2>Student ratings</h2>
+      <h2>What students think</h2>
       {summary ? (
         <p className="student-rating-aggregate">
           {formatStudentRating(summary)}
@@ -64,7 +68,9 @@ export function VenueReviews({
         <p className="reviews-empty">No student ratings yet.</p>
       )}
 
-      {canWrite ? (
+      {canWrite && !userId ? signIn : null}
+
+      {canWrite && userId ? (
         <ReviewComposer
           initial={ownRating?.status === "removed" ? null : ownRating}
           key={ownRating?.status === "active" ? "mine" : "new"}

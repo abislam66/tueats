@@ -17,11 +17,11 @@
 
 ## Typography
 
-- **Display / Hero / Wordmark / Venue titles:** Cabinet Grotesk (Fontshare) — modern geometric, athletic without Inter
-- **Body / UI / Filters:** Satoshi (Fontshare) — clean, slightly rounded; works on phone and desktop
-- **Data / Hours / Walking mins:** JetBrains Mono (tabular nums) — status reads like a readout, not marketing
-- **Code:** JetBrains Mono
-- **Loading:** Self-host woff2 via `next/font` or Fontshare download; latin subset only. Never load Inter / Roboto / system UI / Montserrat / Poppins as primary.
+- **Display (wordmark, venue names, times, headings):** Bricolage Grotesque, weights 500–800 (`--font-bricolage` → `--font-display` / `--font-signature`)
+- **Body / UI / filters:** Figtree (`--font-figtree` → `--font-body` / `--font-data` / `--font-mono`)
+- **Times:** always `font-variant-numeric: tabular-nums` (`time` and `.tabular` get it globally)
+- **No** retro chrome: Monoton/Audiowide/Rajdhani/Share Tech Mono, neon glows, and hard pixel offset shadows are gone (`--shadow-pixel*` are now soft 1–3px shadows).
+- **Loading:** `next/font/google` in `src/app/layout.tsx`; latin subset only. Never load Inter / Roboto / system UI / Montserrat / Poppins as primary.
 - **Scale (size / line-height):**
 
 | Token | Mobile | Desktop (≥1024) |
@@ -85,6 +85,16 @@
 - **Max content width:** Detail/about prose ~40rem (centered or left-aligned in a calm column); home explorer is **viewport-bound** on all sizes
 - **Border radius:** sm 4px · md 8px · lg 12px · sheet top 16px · full 9999px (chips sparingly — prefer md on filter chips)
 
+### Home (`/`) — 2026-11 redesign (current)
+
+- **Header:** 56px dark marquee everywhere. Phone (<1024): wordmark + 44px account icon only. Desktop: wordmark left; live campus time ("Monday, 9:40 PM"), Top rated (Places of the Week), About, account right. Phone reaches Top rated from the list summary row.
+- **Phone + tablet (<1024):** the bottom sheet (collapsed / peek / full + preview) is unchanged. Status legend sits bottom-left above the sheet.
+- **Desktop (≥1024):** persistent split. List pane left (`clamp(380px, 32vw, 460px)`, own scroll; search + chips on top), map fills the rest. No sheet, handle or detents; no map HUD bar. Legend top-left of the map, zone name below it.
+- **List:** grouped by status: "Open late, latest first" (close time desc; after-midnight closes count as latest) → "Closing within the hour" (soonest first; "N min left" in warning) → "Opens later" → "Hours unknown". Rows: name (Bricolage 17/700), plain-words line ("American and halal, in Avery"), Cash Only / Halal tags, right side small caption over a big ink time. Re-sorts every minute (`useMinuteClock`). Logic: `src/lib/venue-groups.ts`.
+- **Rows:** currently link to `/eat/[slug]` (hover highlights the pin). This contradicts "Rows select, never navigate" below; the code already navigated before the redesign. Decide which one is right.
+- **Mini-card (desktop pin select):** name, plain-words line, "Open until 4:00 AM" in open green, full-width cherry "See hours and directions".
+- **Chips:** 44px, radius 8; active = cherry fill + white text.
+
 ### Home (`/`) — mobile
 
 Map is the first viewport. Wordmark top-left (“Tu” ink, “Eats” cherry). Compact search/filter strip. Non-modal bottom sheet with **three** browse snaps: collapsed (handle only — full map), peek (~33% — map + search/filters), and full (~87.5% — the list). Selecting a venue on the phone **swaps** that drawer for a venue preview sheet (same facts as the desktop mini-card, plus a View details button to `/eat/[slug]`). No floating map popup on phone. Dismissing it restores the search/list (or map-only) snap you were on. No half-and-half mid stop. Tapping a zone keeps the current browse snap. No marketing hero. No second map HUD bar. Zoom +/- stay off the phone control row.
@@ -102,7 +112,8 @@ Map is the first viewport. Wordmark top-left (“Tu” ink, “Eats” cherry). 
 
 ### Venue detail (`/eat/[slug]`)
 
-- **Content order (all breakpoints):** name → hedged open-status (mono) → cuisine / zone / payment → photos (only when a venue has them) → student rating + reviews → description → hours → last-verified → report. Student rating is primary; Google snapshots (not in this slice) stay secondary and never merged.
+- **Content order (all breakpoints, 2026-11):** "Back to the map" → name (36px phone / 48px desktop, Bricolage 800) → plain-words line → status card (white, border, r12: "Open now, until" in open green, 64px ink time, "6 hours 20 minutes left tonight", full-width cherry Get directions, "Hours are a guide. Schedules can change.") → Usual hours (today's row on open-soft) → photos (only if any) → "What students think" → Good to know → last verified + Report a problem.
+- **Public:** no sign-in gate on viewing. Signed-out visitors see a sign-in prompt in place of the review composer; rating, reviewing and photo upload stay server-checked (`requireMember`). Student rating is primary; Google snapshots (not in this slice) stay secondary and never merged.
 - **Photos:** horizontal snap-scroll strip of 4:3 frames (`radius-lg`, border, `surface-raised` letterbox), no heading, no lightbox. Venues without photos get **nothing** — no placeholder frame (cards only when they contain content). Source is published `venue_photos` only (DB + Vercel Blob). Member submissions stay out of this strip until an admin approves them. An “Add a photo” control can sit under the strip; it is not a second gallery.
 - **Mobile:** Single column, back returns to explorer with preserved filters/map position.
 - **Desktop:** Typography-led reading column (~40rem) with generous vertical rhythm; optional sticky mini context (open status + primary cuisine) as the user scrolls. Not a cramped phone article stretched to 1200px. Back / “View on map” restores the split explorer state.
@@ -150,10 +161,16 @@ See [docs/design/map-and-pins.md](docs/design/map-and-pins.md) and [public/pins/
 ## Pins
 
 - **Job:** Answer “what's here?” at a glance so a hungry student can scan the corridor.
-- **Shape:** Cherry **name plate** matching zone-label chrome — square corners, hard ink outline, flat offset shadow, leader-line-and-dot stem. The stem-dot tip is the map coordinate.
-- **Info on pin:** **Venue name** baked into the sprite (overlapping plates occlude cleanly). Clustered coinciding spots share one "N spots" plate.
-- **Not on pin:** Open/closed, ratings, cash — those live on list rows, mini-card, and detail.
-- **Selected:** Same plate, thicker ink outline + soft cherry halo.
+- **Shape:** **name plate** matching zone-label chrome — square corners, flat offset shadow, leader-line-and-dot stem. The stem-dot tip is the map coordinate.
+- **Info on pin:** **Venue name** + **open status** baked into the sprite (overlapping plates occlude cleanly). Clustered coinciding spots share one "N spots" plate.
+- **Status states (`getPinStatus`, hours.ts; re-evaluated every minute):**
+  - open → solid cherry plate, white text, ink outline
+  - closing within 60 min → white plate, 2px cherry border, cherry text
+  - closed → canvas `#F5F5F4` plate, `#57534E` text, thin border, faded (~82%)
+  - hours unknown → white plate, dashed `#E7E5E4` border, `#57534E` text (never styled as closed)
+- **Not on pin:** ratings, cash — those live on list rows, mini-card, and detail.
+- **Selected:** Same plate, thicker ink outline + soft cherry halo (full opacity even when closed).
+- **Legend:** Open / Closing soon / Closed, with the live campus time.
 - **Rendering:** One canvas sprite per venue × state, registered as a MapLibre image. Symbol layer or HTML markers OK at ~40 venues.
 - **Density:** Collision fade / light cluster at overview; every plate tappable at street zoom (~16+).
 - **Phase 3 types:** Same plate; name still primary. Optional tiny type mark later — not required for trucks.
@@ -178,7 +195,7 @@ Maps to `Specs/architecture-planning.md`:
 - Warm cream (#F4F1EA-ish) + high-contrast serif + terracotta (AI-default editorial)
 - Purple/indigo SaaS gradients, photo-feed home, 3-column icon grids
 - Inter / Roboto / system / Montserrat / Poppins as primary type
-- Numbered pins or status-colored pin forests (name plates only; open status stays off the pin)
+- Numbered pins; status colors beyond the four plate states above (no green/amber pins — status uses cherry, white, canvas and border only)
 - Empty/decorative pins with no decision-useful info
 - Merging or visually conflating student ratings with Google snapshots (Phase 2+)
 - Marketing hero on `/` — the map *is* the first viewport
@@ -189,6 +206,10 @@ Maps to `Specs/architecture-planning.md`:
 
 ## Decisions Log
 
+| 2026-11-09 | Place pages are public | Hiding hours behind sign-in blocked the core question ("is it open?"). Only rating, reviewing and photo upload need an account (server-checked). Metadata now uses the venue description. Side effect: `SignInGateShown` no longer fires for place pages (still fires on `/account`). |
+| 2026-11-09 | Desktop is a persistent split; header 56px everywhere | Desktop was a stretched phone sheet. List pane left (380–460px), map right, no sheet/HUD. Phone sheet mechanics unchanged. |
+| 2026-11-09 | List sorted by closing time, grouped by status | Alphabetical hid the answer. Groups: open late (latest first) → closing within the hour → opens later → hours unknown. |
+| 2026-11-09 | Type: Bricolage Grotesque + Figtree; retro chrome removed | The retro fonts and glows were hard to read. Colors unchanged. |
 | 2026-11-09 | Open status goes ON the pin (reverses "status stays off the pin") | The product question is "what's open near campus right now, especially late?" Hiding status on the map forced a list round-trip. Four sprite states from `getPinStatus` (hours.ts): open = cherry plate/white text; closing within 60 min = white plate, 2px cherry border, cherry text; closed = canvas plate, ink-secondary text, thin border, faded; unknown = white plate, dashed border, ink-secondary text (never styled as closed). Selected keeps thicker ink outline + halo. Top-left legend: Open / Closing soon / Closed. |
 | 2026-09-10 | Fluid mobile type: Display + Title tokens are `clamp()` | On ~360–400px phones (iPhone 17 Pro) the fixed 32/22px Display/Title felt oversized. `--text-display` / `--text-title` now `clamp()` from a smaller phone floor up to the current value by ~600px; the `min-width:64rem` block still hard-sets the desktop scale, so tablet + desktop are unchanged. `--text-body` (16px, iOS input-zoom), `--text-small` (13px), `--text-micro` (11px) stay fixed — already at readable minimums. Also clamped: `.wordmark`, `.detail-hero/​.about-page h1` (floor 2.25→1.9rem), `.sign-in-gate h1`, `.about-lede`; `.empty-state h2` pinned to `--text-title`; detail/about section padding trims one step under `max-width:40rem`. Y2K display hierarchy unchanged — same fonts, weights, tracking, just scaled. |
 | 2026-09-04 | Phone venue preview hugs its content | A 40% viewport min-height left empty white under View details. Preview height is the card, not a snap fraction. |

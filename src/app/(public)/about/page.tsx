@@ -34,8 +34,8 @@ export default async function AboutPage() {
         <section>
           <h2>Signing in</h2>
           <p>
-            Browsing the map, search, and filters never requires an account.
-            Opening a specific place&rsquo;s full page does, using Google
+            Browsing the map, search, filters, and place pages never requires
+            an account. Rating, reviewing, or adding a photo does, using Google
             sign-in through Supabase. We only ever see your name and email from
             Google to create your account &mdash; your email is never shown to
             anyone or stored outside of authentication, and your Google password

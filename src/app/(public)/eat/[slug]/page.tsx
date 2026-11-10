@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 
-import { SignInGate } from "@/components/venues/sign-in-gate";
 import { VenueDetail } from "@/components/venues/venue-detail";
 import { getUser } from "@/lib/auth";
 import {
@@ -34,11 +33,14 @@ export async function generateMetadata({
   const row = await loadVenue(slug);
   if (!row) return {};
 
-  // Deliberately not row.description — that's gated content, and this
-  // metadata is visible to anonymous crawlers/link-preview bots that
-  // never pass the sign-in gate. Only the venue's name (already public
-  // on the anonymous map/list) goes in the title/description here.
-  const description = `See hours, location, and details for ${row.name} on TuEats — sign in with Google to view.`;
+  // The page is public now, so the admin-written description can lead;
+  // fall back to a plain summary when there isn't one.
+  const blurb = row.description?.trim();
+  const description = blurb
+    ? blurb.length > 160
+      ? `${blurb.slice(0, 157).trimEnd()}…`
+      : blurb
+    : `Hours, location, and student ratings for ${row.name}, near Temple University.`;
   return {
     title: row.name,
     description,
@@ -60,20 +62,13 @@ export default async function VenueDetailPage({
     notFound();
   }
 
+  // Viewing is public; rating, reviewing and photo upload still require
+  // sign-in (enforced server-side by requireMember in those actions).
   const session = await getUser();
-  if (!session) {
-    return (
-      <SignInGate
-        authError={query.auth_error === "1"}
-        next={`/eat/${slug}`}
-        venueName={row.name}
-      />
-    );
-  }
 
   const [reviews, ownRow] = await Promise.all([
     listVenueReviews(row.id),
-    getUserRatingForVenue(row.id, session.id),
+    session ? getUserRatingForVenue(row.id, session.id) : null,
   ]);
 
   const venue: Venue = toVenue(row);
@@ -82,7 +77,8 @@ export default async function VenueDetailPage({
   return (
     <VenueDetail
       backPath={backPath}
-      isAdmin={session.profile.role === "admin"}
+      authError={query.auth_error === "1"}
+      isAdmin={session?.profile.role === "admin"}
       ownRating={
         ownRow
           ? {
@@ -104,7 +100,7 @@ export default async function VenueDetailPage({
         createdAt: review.createdAt.toISOString(),
         updatedAt: review.updatedAt.toISOString(),
       }))}
-      userId={session.id}
+      userId={session?.id ?? null}
       venue={venue}
     />
   );

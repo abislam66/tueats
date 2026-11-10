@@ -4,6 +4,7 @@ import {
   getCampusParts,
   getOpenStatus,
   formatCampusNow,
+  getDetailStatus,
   getPinStatus,
   minutesUntilClose,
   isHoursUnknown,
@@ -126,5 +127,22 @@ describe("formatCampusNow", () => {
     expect(formatCampusNow(new Date("2026-11-10T02:40:00Z"))).toBe(
       "Monday, 9:40 PM",
     );
+  });
+});
+
+describe("getDetailStatus", () => {
+  const late: VenueHours = { mon: [{ open: "18:00", close: "04:00" }] };
+  it("says how long is left tonight", () => {
+    expect(getDetailStatus(late, new Date("2026-11-10T02:40:00Z"))).toEqual({
+      kind: "open",
+      closesAt: "04:00",
+      left: "6 hours 20 minutes left tonight",
+      closingSoon: false,
+    });
+  });
+  it("names the day of the next opening", () => {
+    expect(
+      getDetailStatus(late, new Date("2026-11-10T15:00:00Z")),
+    ).toMatchObject({ kind: "closed", opensAt: "18:00", when: "Monday" });
   });
 });

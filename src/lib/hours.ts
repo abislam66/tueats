@@ -305,3 +305,75 @@ export function formatCampusNow(now: Date = new Date()): string {
   }).format(now);
   return `${day}, ${time}`;
 }
+
+/** "6 hours 20 minutes" / "1 hour" / "45 minutes". */
+export function formatDuration(totalMinutes: number): string {
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  const parts: string[] = [];
+  if (h) parts.push(`${h} ${h === 1 ? "hour" : "hours"}`);
+  if (m || !h) parts.push(`${m} ${m === 1 ? "minute" : "minutes"}`);
+  return parts.join(" ");
+}
+
+const DAY_NAMES: Record<WeekdayKey, string> = {
+  mon: "Monday",
+  tue: "Tuesday",
+  wed: "Wednesday",
+  thu: "Thursday",
+  fri: "Friday",
+  sat: "Saturday",
+  sun: "Sunday",
+};
+
+export type DetailStatus =
+  | { kind: "unknown" }
+  | {
+      kind: "open";
+      closesAt: string;
+      /** "6 hours 20 minutes left tonight". */
+      left: string;
+      closingSoon: boolean;
+    }
+  | {
+      kind: "closed";
+      opensAt: string | null;
+      /** "", "tomorrow", or a weekday name. */
+      when: string;
+    };
+
+/** Wording for the place page's status card (campus time). */
+export function getDetailStatus(
+  hours: VenueHours | null | undefined,
+  now: Date = new Date(),
+): DetailStatus {
+  const status = getOpenStatus(hours, now);
+  if (status.kind === "unknown") return { kind: "unknown" };
+  if (status.kind === "open") {
+    const left = minutesUntilClose(hours, now) ?? 0;
+    const close = parseWallClock(status.closesAt);
+    // Evening or after-midnight closes read as "tonight".
+    const tonight = close >= 17 * 60 || close < 5 * 60;
+    return {
+      kind: "open",
+      closesAt: status.closesAt,
+      left: `${formatDuration(left)} left ${tonight ? "tonight" : "today"}`,
+      closingSoon: left <= CLOSING_SOON_MINUTES,
+    };
+  }
+  const next = nextOpening(hours, now);
+  if (!next) return { kind: "closed", opensAt: null, when: "" };
+  let when = "";
+  if (next.dayOffset === 1) when = "tomorrow";
+  else if (next.dayOffset > 1) {
+    const { weekday } = getCampusParts(now);
+    const idx = (WEEKDAY_FROM_JS.indexOf(weekday) + next.dayOffset) % 7;
+    when = DAY_NAMES[WEEKDAY_FROM_JS[idx]!];
+  }
+  return { kind: "closed", opensAt: next.time, when };
+}
+
+/** Campus weekday key for "today" (highlights the hours row). */
+export function campusWeekday(now: Date = new Date()): WeekdayKey {
+  return getCampusParts(now).weekday;
+}
