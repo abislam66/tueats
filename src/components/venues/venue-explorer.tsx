@@ -6,6 +6,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { useRouter } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
 
 import { VenueMapLoader } from "@/components/map/venue-map-loader";
@@ -146,6 +147,7 @@ export function VenueExplorer({
   // desktop width meanwhile, so there is no flash.
   const [isDesktop, setIsDesktop] = useState(false);
   const posthog = usePostHog();
+  const router = useRouter();
 
   useEffect(() => {
     const media = window.matchMedia(DESKTOP_MEDIA_QUERY);
@@ -290,6 +292,17 @@ export function VenueExplorer({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [selectedId]);
+
+  // Warm the detail route before the user commits to it: a hovered row
+  // (desktop) or a selected pin/row (any device, right as the preview
+  // sheet opens) both predict a "View details" click often enough to be
+  // worth the prefetch.
+  useEffect(() => {
+    const id = hoveredId ?? selectedId;
+    if (!id) return;
+    const venue = venues.find((candidate) => candidate.id === id);
+    if (venue) router.prefetch(`/eat/${venue.slug}`);
+  }, [hoveredId, selectedId, venues, router]);
 
   const selectedVenue = venues.find((venue) => venue.id === selectedId) ?? null;
   // See the isDesktop comment above: only mobile ever swaps the sheet into

@@ -683,7 +683,7 @@ button {
   display: flex;
   flex-direction: row;
   gap: var(--spacing-xs);
-  transition: bottom var(--duration-medium) var(--ease-move);
+  transition: bottom var(--duration-short) var(--ease-enter);
 }
 
 /* Follow the sheet: collapsed rides just above the handle; peek uses
@@ -1187,7 +1187,7 @@ button {
   border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
   background: var(--color-surface);
   box-shadow: 0 -8px 30px rgba(28, 25, 23, 0.11);
-  transition: height var(--duration-medium) var(--ease-move);
+  transition: height var(--duration-short) var(--ease-enter);
 }
 
 .mobile-sheet-collapsed {
@@ -1419,7 +1419,7 @@ button {
 .filter-drawer {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows var(--duration-short) var(--ease-move);
+  transition: grid-template-rows var(--duration-short) var(--ease-enter);
 }
 
 .filter-drawer-open {
@@ -2728,7 +2728,7 @@ time,
     top: auto;
     bottom: calc(var(--sheet-h-default) + var(--spacing-md));
     max-width: calc(100% - 9.5rem);
-    transition: bottom var(--duration-medium) var(--ease-move);
+    transition: bottom var(--duration-short) var(--ease-enter);
   }
   [data-sheet="collapsed"] .map-legend {
     bottom: calc(var(--sheet-h-collapsed) + var(--spacing-md));
