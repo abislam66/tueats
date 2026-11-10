@@ -16,6 +16,7 @@ import {
   type VenuePillStatus,
 } from "@/lib/map/venue-pill-icon";
 import { getPinStatus } from "@/lib/hours";
+import { useMinuteClock } from "@/lib/use-minute-clock";
 import { beforeIdFor, liftOverlaysAboveBasemap } from "@/lib/map/overlay-order";
 import { CUISINES } from "@/config/cuisines";
 import { MAP_ZONES, type MapZoneKey } from "@/config/map-zones";
@@ -277,11 +278,7 @@ export function VenuePillLayer({
   );
   const [openCluster, setOpenCluster] = useState<OpenCluster | null>(null);
   // Re-evaluate pin status every minute so "closing soon" stays live.
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(new Date()), 60_000);
-    return () => window.clearInterval(id);
-  }, []);
+  const now = useMinuteClock();
 
   useEffect(() => {
     onSelectRef.current = onSelect;

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 
+import { formatCampusNow } from "@/lib/hours";
+import { useMinuteClock } from "@/lib/use-minute-clock";
 import { CampusBuildingLayer } from "@/components/map/campus-building-layer";
 import { CampusDiningLayer } from "@/components/map/campus-dining-layer";
 import { LocateControl } from "@/components/map/locate-control";
@@ -56,6 +58,16 @@ const MINI_CARD_PIN_CLEARANCE = 68;
 // Zoom a selection flies to when its venue has no host zone (zone flights
 // have their own fitBounds). Street level, where pills read individually.
 const VENUE_STREET_ZOOM = 16;
+
+/** Live campus time so the status sort reads as "right now". */
+function MapClock() {
+  const now = useMinuteClock();
+  return (
+    <time className="tabular" suppressHydrationWarning>
+      {formatCampusNow(now)}
+    </time>
+  );
+}
 
 export function VenueMap({
   venues,
@@ -584,6 +596,9 @@ export function VenueMap({
       </div>
 
       <ul aria-label="Pin colors" className="map-legend">
+        <li className="map-legend-clock">
+          <MapClock />
+        </li>
         <li>
           <span aria-hidden="true" className="map-legend-swatch is-open" />
           Open

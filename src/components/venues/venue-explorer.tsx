@@ -46,6 +46,7 @@ function ResultsPanel({
   onClearFilters,
   unknownHours,
   filtersActive,
+  openNowActive,
   selectedId,
   hoveredId,
   onHover,
@@ -55,6 +56,7 @@ function ResultsPanel({
   onClearFilters: () => void;
   unknownHours: number;
   filtersActive: boolean;
+  openNowActive: boolean;
   selectedId: string | null;
   hoveredId: string | null;
   onHover: (venueId: string | null) => void;
@@ -85,6 +87,7 @@ function ResultsPanel({
         hoveredId={hoveredId}
         onClear={onClearFilters}
         onHover={onHover}
+        openNowActive={openNowActive}
         selectedId={selectedId}
         venues={venues}
       />
@@ -306,6 +309,7 @@ export function VenueExplorer({
         hoveredId={hoveredId}
         onClearFilters={clearFilters}
         onHover={setHoveredId}
+        openNowActive={filters.openNow}
         selectedId={selectedId}
         unknownHours={unknownHours}
         venues={visibleVenues}

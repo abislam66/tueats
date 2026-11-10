@@ -271,3 +271,32 @@ export function getPinStatus(
   const left = minutesUntilClose(hours, now);
   return left !== null && left <= CLOSING_SOON_MINUTES ? "closing" : "open";
 }
+
+/** Next opening for a closed venue: days from today (0 = later today) + time. */
+export function nextOpening(
+  hours: VenueHours | null | undefined,
+  now: Date = new Date(),
+): { dayOffset: number; time: string } | null {
+  if (!hours) return null;
+  const { weekday, minutes } = getCampusParts(now);
+  if (findOpenRange(hours, weekday, minutes)) return null;
+  return nextOpenAfter(hours, weekday, minutes);
+}
+
+/** "HH:MM" → "4:00 AM" (list and detail display times). */
+export function formatClockTime(time: string): string {
+  const minutes = parseWallClock(time);
+  const h24 = Math.floor(minutes / 60);
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+  return `${h12}:${String(minutes % 60).padStart(2, "0")} ${h24 >= 12 ? "PM" : "AM"}`;
+}
+
+/** "Monday, 9:40 PM" in campus time. */
+export function formatCampusNow(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    weekday: "long",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(now);
+}
