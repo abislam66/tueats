@@ -50,6 +50,7 @@ function ResultsPanel({
   selectedId,
   hoveredId,
   onHover,
+  onPlaces,
 }: {
   venues: Venue[];
   backPath: string;
@@ -57,6 +58,7 @@ function ResultsPanel({
   unknownHours: number;
   filtersActive: boolean;
   openNowActive: boolean;
+  onPlaces: () => void;
   selectedId: string | null;
   hoveredId: string | null;
   onHover: (venueId: string | null) => void;
@@ -81,6 +83,14 @@ function ResultsPanel({
             Clear
           </Button>
         ) : null}
+        {/* Phone header has no nav; Top rated lives here instead. */}
+        <button
+          className="text-link results-top-rated"
+          onClick={onPlaces}
+          type="button"
+        >
+          Top rated
+        </button>
       </div>
       <VenueList
         backPath={backPath}
@@ -131,11 +141,10 @@ export function VenueExplorer({
   // desktop the mini-card handles the selection instead — the sheet stays
   // in whatever browse content it already had, so picking a venue never
   // silently discards an open Places board or restaurant list.
-  const [isDesktop, setIsDesktop] = useState(() =>
-    typeof window === "undefined"
-      ? false
-      : window.matchMedia(DESKTOP_MEDIA_QUERY).matches,
-  );
+  // Starts false on every render pass (server + first client paint) so
+  // hydration matches; the effect below flips it. CSS hides the sheet at
+  // desktop width meanwhile, so there is no flash.
+  const [isDesktop, setIsDesktop] = useState(false);
   const posthog = usePostHog();
 
   useEffect(() => {
@@ -295,13 +304,22 @@ export function VenueExplorer({
         venue={selectedVenue}
       />
     ) : viewMode === "places" ? (
-      <PlacesOfTheWeekPanel
-        hoveredId={hoveredId}
-        onHover={setHoveredId}
-        onSelect={selectFromList}
-        selectedId={selectedId}
-        venues={venues}
-      />
+      <>
+        <button
+          className="text-link places-back"
+          onClick={goHome}
+          type="button"
+        >
+          Back to all places
+        </button>
+        <PlacesOfTheWeekPanel
+          hoveredId={hoveredId}
+          onHover={setHoveredId}
+          onSelect={selectFromList}
+          selectedId={selectedId}
+          venues={venues}
+        />
+      </>
     ) : (
       <ResultsPanel
         backPath={backPath}
@@ -309,6 +327,7 @@ export function VenueExplorer({
         hoveredId={hoveredId}
         onClearFilters={clearFilters}
         onHover={setHoveredId}
+        onPlaces={openPlaces}
         openNowActive={filters.openNow}
         selectedId={selectedId}
         unknownHours={unknownHours}
@@ -316,8 +335,23 @@ export function VenueExplorer({
       />
     );
 
+  const searchOverlay = (
+    <MapSearchOverlay
+      active={filtersActive}
+      filters={filters}
+      notFound={searchNotFound}
+      onChange={setFilters}
+      onClear={clearFilters}
+      onPickSuggestion={selectFromSearch}
+      onSearchBlur={handleSearchBlur}
+      onSearchFocus={() => setSearchFocused(true)}
+      showSuggestions={showSuggestions}
+      suggestions={searchSuggestions}
+    />
+  );
+
   return (
-    <main className="explorer">
+    <main className={isDesktop ? "explorer explorer-desktop" : "explorer"}>
       {/* The map-first redesign dropped the visible "Find your next campus
           bite" hero text (map dominates instead), but the page still needs
           exactly one real h1 for accessibility/SEO. */}
@@ -328,6 +362,13 @@ export function VenueExplorer({
         session={session}
         viewMode={viewMode}
       />
+      {isDesktop ? (
+        // Desktop: persistent list pane beside the map — no sheet.
+        <aside aria-label="Places" className="explorer-pane">
+          {viewMode === "map" ? searchOverlay : null}
+          <div className="explorer-pane-body">{sheetBody}</div>
+        </aside>
+      ) : null}
       <div className="explorer-map">
         <VenueMapLoader
           backPath={backPath}
@@ -347,30 +388,21 @@ export function VenueExplorer({
           selectedZones={filters.zones}
           venues={visibleVenues}
         />
-        <MapSearchOverlay
-          active={filtersActive}
-          filters={filters}
-          notFound={searchNotFound}
-          onChange={setFilters}
-          onClear={clearFilters}
-          onPickSuggestion={selectFromSearch}
-          onSearchBlur={handleSearchBlur}
-          onSearchFocus={() => setSearchFocused(true)}
-          showSuggestions={showSuggestions}
-          suggestions={searchSuggestions}
-        />
+        {isDesktop ? null : searchOverlay}
       </div>
-      <div className="results-sheet-region">
-        <MobileSheet
-          browseLabel="All Restaurants ⌃"
-          mode={sheetMode}
-          onDismissPreview={() => setSelectedId(null)}
-          onSnapChange={setSnap}
-          snap={snap}
-        >
-          {sheetBody}
-        </MobileSheet>
-      </div>
+      {isDesktop ? null : (
+        <div className="results-sheet-region">
+          <MobileSheet
+            browseLabel="All Restaurants ⌃"
+            mode={sheetMode}
+            onDismissPreview={() => setSelectedId(null)}
+            onSnapChange={setSnap}
+            snap={snap}
+          >
+            {sheetBody}
+          </MobileSheet>
+        </div>
+      )}
     </main>
   );
 }

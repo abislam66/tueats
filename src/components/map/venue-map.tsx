@@ -5,8 +5,6 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 
-import { formatCampusNow } from "@/lib/hours";
-import { useMinuteClock } from "@/lib/use-minute-clock";
 import { CampusBuildingLayer } from "@/components/map/campus-building-layer";
 import { CampusDiningLayer } from "@/components/map/campus-dining-layer";
 import { LocateControl } from "@/components/map/locate-control";
@@ -20,12 +18,7 @@ import {
   VenuePillLayer,
   VENUE_PILL_LAYER_ID,
 } from "@/components/map/venue-pill-layer";
-import {
-  CuisineTags,
-  HalalTag,
-  OpenStatus,
-  PaymentTag,
-} from "@/components/venues/venue-bits";
+import { OpenStatus } from "@/components/venues/venue-bits";
 import {
   MAP_ZONE_KEYS,
   MAP_ZONES,
@@ -39,7 +32,9 @@ import {
   DEFAULT_VIEWPORT,
   MAP_STYLE_URL,
 } from "@/config/site";
-import { getOpenStatus } from "@/lib/hours";
+import { formatCampusNow, formatClockTime, getOpenStatus } from "@/lib/hours";
+import { useMinuteClock } from "@/lib/use-minute-clock";
+import { venuePlainLine } from "@/lib/venue-groups";
 import { mapZoneContaining } from "@/lib/map/point-in-polygon";
 import {
   DESKTOP_MEDIA_QUERY,
@@ -66,6 +61,26 @@ function MapClock() {
     <time className="tabular" suppressHydrationWarning>
       {formatCampusNow(now)}
     </time>
+  );
+}
+
+/** "Open until 4:00 AM" in open green; other states fall back to the badge. */
+function MiniCardStatus({ venue }: { venue: Venue }) {
+  const now = useMinuteClock();
+  const status =
+    venue.status === "published" ? getOpenStatus(venue.hours, now) : null;
+  if (status?.kind === "open") {
+    return (
+      <p className="map-mini-card-status">
+        Open until{" "}
+        <time className="tabular">{formatClockTime(status.closesAt)}</time>
+      </p>
+    );
+  }
+  return (
+    <p className="map-mini-card-status is-muted">
+      <OpenStatus venue={venue} />
+    </p>
   );
 }
 
@@ -127,11 +142,7 @@ export function VenueMap({
     return counts;
   }, [venues]);
 
-  // HUD coordinate + zoom readout — the map center, live as the camera moves.
-  const [hudCenter, setHudCenter] = useState<{
-    lat: number;
-    lng: number;
-  } | null>(null);
+  // Live zoom — drives when pins take over from zone badges.
   const [hudZoom, setHudZoom] = useState<number | null>(null);
 
   // Individual pins take over from zone badges once the user has zoomed in
@@ -174,8 +185,6 @@ export function VenueMap({
     const HUD_THROTTLE_MS = 100;
     function syncHud() {
       if (!map) return;
-      const c = map.getCenter();
-      setHudCenter({ lat: c.lat, lng: c.lng });
       setHudZoom(map.getZoom());
     }
     function throttledSyncHud() {
@@ -326,9 +335,8 @@ export function VenueMap({
       padding: {
         top: 0,
         right: 0,
-        bottom: desktop
-          ? measureCurrentMobileSheetHeightPx()
-          : measureMobileSheetHeightPx("preview"),
+        // Desktop has no sheet over the map (list is a side pane).
+        bottom: desktop ? 0 : measureMobileSheetHeightPx("preview"),
         left: 0,
       },
       duration: reduceMotion ? 0 : 650,
@@ -562,39 +570,6 @@ export function VenueMap({
         </p>
       ) : null}
 
-      <div className="map-hud-bar">
-        <span className="map-hud-location">
-          {selectedZones.length === 1
-            ? MAP_ZONES[selectedZones[0]!].label.toUpperCase()
-            : zonesActive
-              ? `${selectedZones.length} ZONES`
-              : "TEMPLE UNIVERSITY // PHILADELPHIA, PA"}
-        </span>
-        <span className="map-hud-coords">
-          {hudCenter
-            ? `LAT: ${hudCenter.lat.toFixed(4)} N   LON: ${Math.abs(hudCenter.lng).toFixed(4)} W`
-            : ""}
-          {hudZoom !== null ? `   ZOOM: ${hudZoom.toFixed(1)}` : ""}
-        </span>
-        <button
-          className="map-hud-reset"
-          disabled={!ready}
-          onClick={resetView}
-          type="button"
-        >
-          <svg
-            aria-hidden="true"
-            fill="currentColor"
-            height="10"
-            viewBox="0 0 10 10"
-            width="10"
-          >
-            <path d="M5 0 6.13 3.35 9.51 3.35 6.79 5.4 7.94 8.76 5 6.7 2.06 8.76 3.21 5.4 0.49 3.35 3.87 3.35Z" />
-          </svg>
-          All zones
-        </button>
-      </div>
-
       <ul aria-label="Pin colors" className="map-legend">
         <li className="map-legend-clock">
           <MapClock />
@@ -664,40 +639,18 @@ export function VenueMap({
               }}
             >
               <div className="map-mini-card">
+                <h3 className="map-mini-card-name">{poppedVenue.name}</h3>
+                {venuePlainLine(poppedVenue) ? (
+                  <p className="map-mini-card-line">
+                    {venuePlainLine(poppedVenue)}
+                  </p>
+                ) : null}
+                <MiniCardStatus venue={poppedVenue} />
                 <Link
-                  className="map-mini-card-link"
+                  className="button button-primary map-mini-card-cta"
                   href={`/eat/${poppedVenue.slug}?from=${encodeURIComponent(backPath)}`}
                 >
-                  <div className="map-mini-card-top">
-                    <h3>{poppedVenue.name}</h3>
-                  </div>
-                  <div className="venue-tags">
-                    <CuisineTags cuisines={poppedVenue.cuisines} />
-                    <PaymentTag card={poppedVenue.acceptsCard} />
-                    <HalalTag isHalal={poppedVenue.isHalal} />
-                  </div>
-                  <div className="map-mini-card-footer">
-                    <OpenStatus venue={poppedVenue} />
-                    <span className="map-mini-card-meta">
-                      {/* Arrow-only affordance; the whole card is the link. */}
-                      <span aria-hidden="true" className="map-mini-card-go">
-                        <svg
-                          fill="none"
-                          height="15"
-                          stroke="currentColor"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="1.75"
-                          viewBox="0 0 16 16"
-                          width="15"
-                        >
-                          <path d="M3 8h10" />
-                          <path d="m8.5 3.5 4.5 4.5-4.5 4.5" />
-                        </svg>
-                      </span>
-                      <span className="sr-only">View details</span>
-                    </span>
-                  </div>
+                  See hours and directions
                 </Link>
                 <button
                   aria-label="Close venue preview"
@@ -752,8 +705,9 @@ function flyToZones(
   // — so "preview" height only applies there; every other case pads for
   // whatever height the sheet is actually showing right now.
   const isMobile = !window.matchMedia(DESKTOP_MEDIA_QUERY).matches;
-  const bottomInset =
-    isMobile && venueSelected
+  const bottomInset = !isMobile
+    ? 0
+    : venueSelected
       ? measureMobileSheetHeightPx("preview")
       : measureCurrentMobileSheetHeightPx();
   map.fitBounds(

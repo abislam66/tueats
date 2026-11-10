@@ -293,10 +293,15 @@ export function formatClockTime(time: string): string {
 
 /** "Monday, 9:40 PM" in campus time. */
 export function formatCampusNow(now: Date = new Date()): string {
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
+  const tz = "America/New_York";
+  const day = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
     weekday: "long",
+  }).format(now);
+  const time = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
     hour: "numeric",
     minute: "2-digit",
   }).format(now);
+  return `${day}, ${time}`;
 }

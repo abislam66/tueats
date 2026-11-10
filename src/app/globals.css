@@ -94,7 +94,7 @@
      Expanded = the list. Preview hugs its content (phone only). There
      is no half-and-half mid snap. Read by .mobile-sheet-*, .map-controls,
      mobile-sheet.tsx, and venue-map.tsx's flyTo inset. */
-  --sheet-header-h: 4.25rem;
+  --sheet-header-h: 3.5rem;
   --sheet-h-collapsed: calc(2.75rem + env(safe-area-inset-bottom, 0px));
   --sheet-h-default: max(
     9.5rem,
@@ -302,7 +302,7 @@ button {
   position: relative;
   z-index: 30;
   display: flex;
-  height: 4.25rem;
+  height: 3.5rem;
   align-items: center;
   justify-content: space-between;
   padding: 0 var(--spacing-md);
@@ -317,13 +317,14 @@ button {
   gap: var(--spacing-md);
   color: #d9cfc8;
   font-size: var(--text-small);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-weight: 600;
 }
 
 .site-header nav a {
-  padding: var(--spacing-sm) 0;
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  padding: 0;
   border-bottom: 2px solid transparent;
 }
 
@@ -580,7 +581,7 @@ button {
 
 .explorer-map {
   position: absolute;
-  inset: 4.25rem 0 0;
+  inset: 3.5rem 0 0;
 }
 
 .venue-map,
@@ -2585,8 +2586,8 @@ button {
   }
 
   .map-legend {
-    top: calc(4.75rem + var(--spacing-md));
-    left: var(--spacing-xl);
+    top: var(--spacing-lg);
+    left: var(--spacing-lg);
   }
 }
 
@@ -2614,12 +2615,12 @@ button {
 
 @media (min-width: 64rem) {
   .site-header {
-    height: 4.75rem;
+    height: 3.5rem;
     padding: 0 var(--spacing-xl);
   }
 
   .explorer-map {
-    inset: 4.75rem 0 0;
+    inset: 3.5rem 0 0;
   }
 
   .filter-area,
@@ -2739,4 +2740,198 @@ time,
   flex-wrap: wrap;
   row-gap: 0.2rem;
   max-width: calc(100% - 2 * var(--spacing-md));
+}
+
+/* ---- Redesign phase 3: layouts ---- */
+
+/* Phone header: wordmark + account only. */
+.header-clock,
+.site-header nav .header-action {
+  display: none;
+}
+
+.header-clock {
+  color: #f5ece6;
+  font-family: var(--font-display), sans-serif;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.results-top-rated {
+  margin-left: auto;
+  min-height: 2.75rem;
+  font-family: var(--font-body), sans-serif;
+  font-size: var(--text-small);
+}
+
+.clear-button + .results-top-rated {
+  margin-left: var(--spacing-sm);
+}
+
+.places-back {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  margin: var(--spacing-xs) var(--spacing-md) 0;
+  padding: 0;
+  font-size: var(--text-small);
+}
+
+/* Phone legend rides above the sheet (top is the search card). */
+@media (max-width: 63.9375rem) {
+  .map-legend {
+    top: auto;
+    bottom: calc(var(--sheet-h-default) + var(--spacing-md));
+    max-width: calc(100% - 9.5rem);
+    transition: bottom var(--duration-medium) var(--ease-move);
+  }
+  [data-sheet="collapsed"] .map-legend {
+    bottom: calc(var(--sheet-h-collapsed) + var(--spacing-md));
+  }
+  [data-sheet="preview"] .map-legend {
+    bottom: calc(var(--sheet-h-preview) + var(--spacing-md));
+  }
+  [data-sheet="full"] .map-legend {
+    display: none;
+  }
+}
+
+@media (min-width: 64rem) {
+  .header-clock,
+  .site-header nav .header-action {
+    display: inline-flex;
+  }
+
+  .site-header {
+    padding: 0 var(--spacing-xl);
+  }
+
+  .site-header nav {
+    gap: var(--spacing-lg);
+  }
+
+  /* Pane appears after mount; never flash the phone sheet on desktop. */
+  .results-sheet-region,
+  .results-top-rated {
+    display: none;
+  }
+
+  .explorer-desktop {
+    --pane-w: clamp(23.75rem, 32vw, 28.75rem);
+  }
+
+  .explorer-pane {
+    position: absolute;
+    top: 3.5rem;
+    bottom: 0;
+    left: 0;
+    z-index: 10;
+    display: flex;
+    width: var(--pane-w);
+    flex-direction: column;
+    border-right: 1px solid var(--color-border);
+    background: var(--color-surface);
+  }
+
+  .explorer-pane-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .explorer-pane .map-search-overlay {
+    position: relative;
+    top: auto;
+    left: auto;
+    width: auto;
+    flex-shrink: 0;
+    transform: none;
+    border: 0;
+    border-bottom: 1px solid var(--color-border);
+    border-radius: 0;
+    box-shadow: none;
+    padding-bottom: var(--spacing-sm);
+  }
+
+  .explorer-desktop .explorer-map {
+    left: var(--pane-w);
+  }
+
+  .explorer-desktop .map-controls,
+  :root[data-sheet] .explorer-desktop .map-controls {
+    display: flex;
+    bottom: var(--spacing-xl);
+  }
+
+  .map-zone-label {
+    display: block;
+    position: absolute;
+    top: calc(var(--spacing-lg) + 2.5rem);
+    left: var(--spacing-lg);
+    z-index: 4;
+    margin: 0;
+    padding: 0.3rem 0.6rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font-family: var(--font-display), sans-serif;
+    font-size: var(--text-small);
+    font-weight: 700;
+    pointer-events: none;
+  }
+}
+
+/* Desktop pin mini-card. */
+.map-mini-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: var(--spacing-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 6px 20px rgba(28, 25, 23, 0.14);
+}
+
+.map-mini-card:hover {
+  transform: none;
+}
+
+.map-mini-card:focus-within {
+  outline: none;
+}
+
+.map-mini-card-name {
+  margin: 0;
+  padding-right: 2.25rem;
+  font-family: var(--font-display), sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+}
+
+.map-mini-card-line {
+  margin: 0;
+  color: var(--color-ink-secondary);
+  font-size: var(--text-small);
+}
+
+.map-mini-card-status {
+  margin: 0.15rem 0 0;
+  color: var(--color-open);
+  font-family: var(--font-display), sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.map-mini-card-status.is-muted {
+  font-family: var(--font-body), sans-serif;
+}
+
+.map-mini-card-cta {
+  margin-top: var(--spacing-sm);
+  width: 100%;
+  justify-content: center;
+  border-radius: var(--radius-md);
 }

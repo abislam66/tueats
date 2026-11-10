@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { MouseEvent, ReactNode } from "react";
 
+import { formatCampusNow } from "@/lib/hours";
+import { useMinuteClock } from "@/lib/use-minute-clock";
 import {
   UserAvatar,
   type HeaderSession,
@@ -62,18 +64,23 @@ export function HeaderNav({
   onHome?: () => void;
   onPlaces?: () => void;
 }) {
+  const now = useMinuteClock();
   return (
     <nav aria-label="Primary navigation">
-      <NavAction active={viewMode === "map"} href="/" onClick={onHome}>
-        Home
-      </NavAction>
+      <time className="header-clock tabular" suppressHydrationWarning>
+        {formatCampusNow(now)}
+      </time>
+      {/* Top rated toggles: from the board, it returns to the map. */}
       <NavAction
         active={viewMode === "places"}
-        href="/?view=places"
-        onClick={onPlaces}
+        href={viewMode === "places" ? "/" : "/?view=places"}
+        onClick={viewMode === "places" ? onHome : onPlaces}
       >
-        Places of the Week
+        Top rated
       </NavAction>
+      <Link className="header-action" href="/about">
+        About
+      </Link>
       <UserAvatar session={session} />
     </nav>
   );

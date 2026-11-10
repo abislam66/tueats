@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   getCampusParts,
   getOpenStatus,
+  formatCampusNow,
   getPinStatus,
   minutesUntilClose,
   isHoursUnknown,
@@ -117,5 +118,13 @@ describe("getPinStatus", () => {
   it("is closed outside hours and unknown without hours", () => {
     expect(getPinStatus(late, new Date("2026-11-09T17:00:00Z"))).toBe("closed");
     expect(getPinStatus(null)).toBe("unknown");
+  });
+});
+
+describe("formatCampusNow", () => {
+  it("reads as weekday, time in campus time", () => {
+    expect(formatCampusNow(new Date("2026-11-10T02:40:00Z"))).toBe(
+      "Monday, 9:40 PM",
+    );
   });
 });
