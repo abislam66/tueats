@@ -1,5 +1,5 @@
 import { Analytics } from "@vercel/analytics/next";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Figtree } from "next/font/google";
 import "./globals.css";
 
@@ -18,6 +18,14 @@ const figtree = Figtree({
   display: "swap",
   variable: "--font-figtree",
 });
+
+// viewport-fit=cover lets the dark header run under the notch; the header and
+// bottom sheet pad themselves with env(safe-area-inset-*). Zoom stays enabled.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
 
 const SITE_DESCRIPTION =
   "An unofficial guide to food trucks and other off-meal-plan food near Temple University.";
