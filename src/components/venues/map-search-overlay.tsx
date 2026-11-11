@@ -30,6 +30,8 @@ export function MapSearchOverlay({
   onPickSuggestion,
   onSearchFocus,
   onSearchBlur,
+  sortLabel,
+  onOpenSort,
 }: {
   filters: VenueFilters;
   onChange: (filters: VenueFilters) => void;
@@ -41,6 +43,8 @@ export function MapSearchOverlay({
   onPickSuggestion: (venueId: string) => void;
   onSearchFocus: () => void;
   onSearchBlur: (event: ReactFocusEvent<HTMLInputElement>) => void;
+  sortLabel?: string;
+  onOpenSort?: () => void;
 }) {
   return (
     <div className="map-search-overlay">
@@ -50,7 +54,9 @@ export function MapSearchOverlay({
         onChange={onChange}
         onClear={onClear}
         onSearchBlur={onSearchBlur}
+        onOpenSort={onOpenSort}
         onSearchFocus={onSearchFocus}
+        sortLabel={sortLabel}
         searchPlaceholder="tueats.co"
       />
       {showSuggestions ? (

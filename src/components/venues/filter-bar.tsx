@@ -29,6 +29,8 @@ export function FilterBar({
   searchPlaceholder = "Search food or a place",
   onSearchFocus,
   onSearchBlur,
+  sortLabel,
+  onOpenSort,
 }: {
   filters: VenueFilters;
   onChange: (filters: VenueFilters) => void;
@@ -40,6 +42,9 @@ export function FilterBar({
   /** Optional — lets a caller drive a search-suggestions dropdown. */
   onSearchFocus?: () => void;
   onSearchBlur?: (event: ReactFocusEvent<HTMLInputElement>) => void;
+  /** Desktop pane: shows a "Sort: …" chip that opens the sort sheet. */
+  sortLabel?: string;
+  onOpenSort?: () => void;
 }) {
   // Menu options expand inline below the chip row — an in-panel drawer
   // that pushes the results down. Never a floating popover over the list.
@@ -95,49 +100,67 @@ export function FilterBar({
           value={filters.query}
         />
       </label>
-      <div className="filter-scroll" aria-label="Venue filters">
-        <Chip active={filters.openNow} onClick={() => toggleBoolean("openNow")}>
-          Open now
-        </Chip>
-        <Chip active={filters.isHalal} onClick={() => toggleBoolean("isHalal")}>
-          Halal
-        </Chip>
-        <Chip
-          active={filters.isVeganFriendly}
-          onClick={() => toggleBoolean("isVeganFriendly")}
-        >
-          Vegan Friendly
-        </Chip>
-        <Chip active={filters.isCafe} onClick={() => toggleBoolean("isCafe")}>
-          Café
-        </Chip>
-        <button
-          aria-controls={drawerId}
-          aria-expanded={openMenu === "cuisine"}
-          className={menuChipClass("cuisine", filters.cuisines.length)}
-          onClick={() => toggleMenu("cuisine")}
-          type="button"
-        >
-          Cuisine
-          {filters.cuisines.length ? ` · ${filters.cuisines.length}` : ""}
-        </button>
-        <button
-          aria-controls={drawerId}
-          aria-expanded={openMenu === "zone"}
-          className={menuChipClass("zone", filters.zones.length)}
-          onClick={() => toggleMenu("zone")}
-          type="button"
-        >
-          Zone{filters.zones.length ? ` · ${filters.zones.length}` : ""}
-        </button>
-        {active ? (
-          <Button
-            className="filter-clear-button"
-            onClick={onClear}
-            variant="ghost"
+      <div className="filter-row">
+        <div className="filter-scroll" aria-label="Venue filters">
+          <Chip
+            active={filters.openNow}
+            onClick={() => toggleBoolean("openNow")}
           >
-            Clear filters
-          </Button>
+            Open now
+          </Chip>
+          <Chip
+            active={filters.isHalal}
+            onClick={() => toggleBoolean("isHalal")}
+          >
+            Halal
+          </Chip>
+          <Chip
+            active={filters.isVeganFriendly}
+            onClick={() => toggleBoolean("isVeganFriendly")}
+          >
+            Vegan Friendly
+          </Chip>
+          <Chip active={filters.isCafe} onClick={() => toggleBoolean("isCafe")}>
+            Café
+          </Chip>
+          <button
+            aria-controls={drawerId}
+            aria-expanded={openMenu === "cuisine"}
+            className={menuChipClass("cuisine", filters.cuisines.length)}
+            onClick={() => toggleMenu("cuisine")}
+            type="button"
+          >
+            Cuisine
+            {filters.cuisines.length ? ` · ${filters.cuisines.length}` : ""}
+          </button>
+          <button
+            aria-controls={drawerId}
+            aria-expanded={openMenu === "zone"}
+            className={menuChipClass("zone", filters.zones.length)}
+            onClick={() => toggleMenu("zone")}
+            type="button"
+          >
+            Zone{filters.zones.length ? ` · ${filters.zones.length}` : ""}
+          </button>
+          {active ? (
+            <Button
+              className="filter-clear-button"
+              onClick={onClear}
+              variant="ghost"
+            >
+              Clear filters
+            </Button>
+          ) : null}
+        </div>
+        {sortLabel && onOpenSort ? (
+          <button
+            aria-haspopup="dialog"
+            className="chip"
+            onClick={onOpenSort}
+            type="button"
+          >
+            Sort: {sortLabel}
+          </button>
         ) : null}
       </div>
       <div

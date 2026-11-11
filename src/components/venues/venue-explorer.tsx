@@ -22,9 +22,9 @@ import { PhoneClock, PhoneHome } from "@/components/venues/phone-home";
 import { PhoneListHome } from "@/components/venues/phone-list-home";
 import {
   distanceMap,
-  orderVenues,
-  type PhoneSort,
-} from "@/components/venues/phone-list";
+  SortedVenueList,
+} from "@/components/venues/venue-sorted-list";
+import { VenueSortSheet } from "@/components/venues/venue-sort-sheet";
 import { PlacesOfTheWeekPanel } from "@/components/venues/places-of-the-week-panel";
 import { VenueList } from "@/components/venues/venue-list";
 import { AnalyticsEvent } from "@/lib/analytics";
@@ -34,6 +34,12 @@ import { FIT_VENUE_COUNT, type CameraMemory } from "@/lib/map/default-camera";
 import { useMinuteClock } from "@/lib/use-minute-clock";
 import { venuePlaceName } from "@/lib/venue-groups";
 import { DESKTOP_MEDIA_QUERY } from "@/lib/mobile-sheet-heights";
+import {
+  resolveSort,
+  sortVenues,
+  VENUE_SORT_SHORT,
+  type VenueSort,
+} from "@/lib/venue-sort";
 import type { Venue } from "@/lib/venues";
 import {
   countUnknownHours,
@@ -59,8 +65,14 @@ function ResultsPanel({
   onHover,
   onSelect,
   onPlaces,
+  now,
+  sort,
+  location,
 }: {
   venues: Venue[];
+  now: Date;
+  sort: VenueSort;
+  location: { lat: number; lng: number } | null;
   onClearFilters: () => void;
   unknownHours: number;
   filtersActive: boolean;
@@ -100,15 +112,30 @@ function ResultsPanel({
           Top rated
         </button>
       </div>
-      <VenueList
-        hoveredId={hoveredId}
-        onClear={onClearFilters}
-        onHover={onHover}
-        onSelect={onSelect}
-        openNowActive={openNowActive}
-        selectedId={selectedId}
-        venues={venues}
-      />
+      {venues.length === 0 ? (
+        <VenueList
+          hoveredId={hoveredId}
+          onClear={onClearFilters}
+          onHover={onHover}
+          onSelect={onSelect}
+          openNowActive={openNowActive}
+          selectedId={selectedId}
+          venues={venues}
+        />
+      ) : (
+        <SortedVenueList
+          highlightedId={hoveredId}
+          includeClosed={!openNowActive}
+          location={location}
+          now={now}
+          onClearFilters={onClearFilters}
+          onHover={onHover}
+          onOpen={(venue) => onSelect(venue.id)}
+          selectedId={selectedId}
+          sort={sort}
+          venues={venues}
+        />
+      )}
     </div>
   );
 }
@@ -141,7 +168,9 @@ export function VenueExplorer({
   // Phone: list first. The map is one tap away ("Map" pill) and is not
   // even mounted until then.
   const [phoneView, setPhoneView] = useState<"list" | "map">("list");
-  const [sort, setSort] = useState<PhoneSort>("latest");
+  const [sort, setSort] = useState<VenueSort>("earliest");
+  const [sortOpen, setSortOpen] = useState(false);
+  const [sortOpener, setSortOpener] = useState<HTMLElement | null>(null);
   const location = useGrantedLocation();
   const now = useMinuteClock();
   // Survives the map unmounting (phone list <-> map), so reopening the map
@@ -277,18 +306,27 @@ export function VenueExplorer({
     [venues, filters],
   );
   const filtersActive = query.length > 0;
-  const effectiveSort: PhoneSort =
-    sort === "nearest" && !location ? "latest" : sort;
+  // Without location, Nearest is never in effect, even if it was chosen.
+  const effectiveSort = resolveSort(sort, location !== null);
+
+  function openSort() {
+    setSortOpener(
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null,
+    );
+    setSortOpen(true);
+  }
   // The first open venues in the list's own order drive the default camera.
   const fitVenues = useMemo(() => {
-    const groups = orderVenues(
+    const groups = sortVenues(
       visibleVenues,
       now,
       effectiveSort,
       distanceMap(visibleVenues, location),
+      { includeClosed: false },
     );
     return groups
-      .filter((group) => group.key === "open" || group.key === "closing")
       .flatMap((group) => group.items.map((item) => item.venue))
       .slice(0, FIT_VENUE_COUNT);
   }, [visibleVenues, now, effectiveSort, location]);
@@ -392,6 +430,9 @@ export function VenueExplorer({
         onSelect={selectFromList}
         openNowActive={filters.openNow}
         selectedId={selectedId}
+        location={location}
+        now={now}
+        sort={effectiveSort}
         unknownHours={unknownHours}
         venues={visibleVenues}
       />
@@ -404,10 +445,12 @@ export function VenueExplorer({
       notFound={searchNotFound}
       onChange={setFilters}
       onClear={clearFilters}
+      onOpenSort={openSort}
       onPickSuggestion={selectFromSearch}
       onSearchBlur={handleSearchBlur}
       onSearchFocus={() => setSearchFocused(true)}
       showSuggestions={showSuggestions}
+      sortLabel={VENUE_SORT_SHORT[effectiveSort]}
       suggestions={searchSuggestions}
     />
   );
@@ -445,7 +488,7 @@ export function VenueExplorer({
               onFiltersChange={setFilters}
               location={location}
               onMap={showPhoneMap}
-              onSortChange={setSort}
+              onOpenSort={openSort}
               sort={effectiveSort}
               onOpenVenue={openPlacePage}
               onPlaces={openPlaces}
@@ -502,6 +545,14 @@ export function VenueExplorer({
           )}
         </div>
       ) : null}
+      <VenueSortSheet
+        hasLocation={location !== null}
+        onClose={() => setSortOpen(false)}
+        onSelect={setSort}
+        open={sortOpen}
+        returnFocusTo={sortOpener}
+        sort={effectiveSort}
+      />
     </main>
   );
 }

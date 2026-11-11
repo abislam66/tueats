@@ -10,20 +10,15 @@ import {
   type MapZoneKey,
 } from "@/config/map-zones";
 import { PhoneClock } from "@/components/venues/phone-home";
-import {
-  PHONE_SORT_LABELS,
-  PhoneList,
-  type PhoneSort,
-} from "@/components/venues/phone-list";
+import { SortedVenueList } from "@/components/venues/venue-sorted-list";
 import { AnalyticsEvent } from "@/lib/analytics";
 import type { LatLng } from "@/lib/geo";
 import { isOpenNow } from "@/lib/hours";
 import { useMinuteClock } from "@/lib/use-minute-clock";
+import { VENUE_SORT_SHORT, type VenueSort } from "@/lib/venue-sort";
 import { filterVenues, type Venue, type VenueFilters } from "@/lib/venues";
 
-type MenuKey = "cuisine" | "zone" | "sort";
-
-const SORT_ORDER: PhoneSort[] = ["nearest", "closing", "latest"];
+type MenuKey = "cuisine" | "zone";
 
 function CheckIcon() {
   return (
@@ -65,7 +60,7 @@ export function PhoneListHome({
   onMap,
   onPlaces,
   sort,
-  onSortChange,
+  onOpenSort,
   location,
 }: {
   venues: Venue[];
@@ -77,16 +72,14 @@ export function PhoneListHome({
   onPrefetchVenue: (venue: Venue) => void;
   onMap: () => void;
   onPlaces: () => void;
-  sort: PhoneSort;
-  onSortChange: (sort: PhoneSort) => void;
+  sort: VenueSort;
+  onOpenSort: () => void;
   location: LatLng | null;
 }) {
   const now = useMinuteClock();
   const posthog = usePostHog();
   const [openMenu, setOpenMenu] = useState<MenuKey | null>(null);
 
-  const effectiveSort: PhoneSort =
-    sort === "nearest" && !location ? "latest" : sort;
   const openCount = visibleVenues.filter(
     (venue) => venue.status === "published" && isOpenNow(venue.hours, now),
   ).length;
@@ -209,12 +202,12 @@ export function PhoneListHome({
             {filters.zones.length ? `· ${filters.zones.length}` : ""}
           </button>
           <button
-            aria-expanded={openMenu === "sort"}
-            className={chip(effectiveSort !== "latest" || openMenu === "sort")}
-            onClick={() => menuChip("sort")}
+            aria-haspopup="dialog"
+            className="chip pl-chip"
+            onClick={onOpenSort}
             type="button"
           >
-            Sort: {PHONE_SORT_LABELS[effectiveSort]}
+            Sort: {VENUE_SORT_SHORT[sort]}
           </button>
         </div>
 
@@ -248,41 +241,14 @@ export function PhoneListHome({
             ))}
           </div>
         ) : null}
-        {openMenu === "sort" ? (
-          <>
-            <div aria-label="Sort by" className="pl-options" role="group">
-              {SORT_ORDER.map((key) => {
-                const disabled = key === "nearest" && !location;
-                return (
-                  <button
-                    aria-describedby={disabled ? "pl-sort-hint" : undefined}
-                    aria-pressed={effectiveSort === key}
-                    className={chip(effectiveSort === key)}
-                    disabled={disabled}
-                    key={key}
-                    onClick={() => onSortChange(key)}
-                    type="button"
-                  >
-                    {PHONE_SORT_LABELS[key]}
-                  </button>
-                );
-              })}
-            </div>
-            {location ? null : (
-              <p className="pl-hint" id="pl-sort-hint">
-                Turn on location to sort by distance.
-              </p>
-            )}
-          </>
-        ) : null}
-
-        <PhoneList
+        <SortedVenueList
+          includeClosed={!filters.openNow}
           location={location}
           now={now}
           onClearFilters={onClearFilters}
           onOpen={onOpenVenue}
           onPrefetch={onPrefetchVenue}
-          sort={effectiveSort}
+          sort={sort}
           venues={visibleVenues}
         />
       </div>
