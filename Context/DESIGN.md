@@ -214,6 +214,7 @@ Maps to `Specs/architecture-planning.md`:
 
 ## Decisions Log
 
+| 2026-11-11 | Light pins are cherry; "until" times are ink | Light theme: open = solid cherry plate with white text, closing = white plate with a 2px cherry border, closed = muted, unknown = dashed. Green `--open-fg` no longer marks pins in light (dark keeps amber, shared via `--pin-open` for the legend). The list/card "until" time is ink in both themes. |
 | 2026-11-11 | Map view drives the visible set | Pan/zoom is the filter people actually use on a map: pins, phone cards and the desktop list show what is on screen (desktop can "Show all N places"). Selected venue is always kept. |
 | 2026-11-11 | Card selection is tap-only | Swipe-to-select moved the map while people were just browsing cards. Only a tap selects (popup on desktop, preview card on phone). |
 | 2026-11-11 | Zoom-based pin density | Under z15 open venues only (max 12, clusters as bubbles); z15-16 open/closing plates + closed dots; z16+ all plates. Pins now draw at every zoom instead of waiting for z15.2; zone badges stay under them. |

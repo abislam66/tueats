@@ -18,6 +18,7 @@
   --color-ink-muted: #6f6964;
   --color-border: #e7e5e4;
   --open-fg: #3f6f5a;
+  --pin-open: #9d2235;
   --color-open: var(--open-fg);
   --color-open-soft: #e8f2ec;
   --color-closed: #6f6964;
@@ -138,6 +139,7 @@
   --color-border-strong: #5a3f48;
   --color-accent: #f29aa8;
   --open-fg: #f5b642;
+  --pin-open: #f5b642;
   --color-open-soft: #3a2e1a;
   --color-closed: #a8929a;
   --color-closed-soft: #2c1920;
@@ -922,12 +924,12 @@ button {
 }
 
 .map-legend-swatch.is-open {
-  background: var(--open-fg);
+  background: var(--pin-open);
 }
 
 .map-legend-swatch.is-closing {
   background: var(--color-surface);
-  border: 2px solid var(--open-fg);
+  border: 2px solid var(--pin-open);
 }
 
 .map-legend-swatch.is-closed {
@@ -3432,7 +3434,7 @@ html {
   }
 
   .phone-card-until {
-    color: var(--color-open);
+    color: var(--color-ink-secondary);
     font-size: var(--text-micro);
     font-weight: 600;
     line-height: 1;
@@ -3711,7 +3713,7 @@ html {
 
 .venue-row-clock.is-open,
 .phone-card-clock {
-  color: var(--open-fg);
+  color: var(--color-ink);
 }
 
 .theme-toggle {
@@ -3985,7 +3987,7 @@ html {
 }
 
 .pl-clock {
-  color: var(--open-fg);
+  color: var(--color-ink);
   font-family: var(--font-display), sans-serif;
   font-size: var(--text-time);
   font-weight: 800;

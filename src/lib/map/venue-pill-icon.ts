@@ -178,10 +178,10 @@ type StatusStyle = {
   stem?: string;
 };
 
-// Open uses --open-fg (green in light, amber in dark); everything else
+// Open is a cherry plate in light and amber in dark; everything else
 // reuses the theme's neutrals. Sprites are baked when the map is built, and
 // a theme switch rebuilds the map, so reading the theme here is enough.
-const OPEN_LIGHT = "#3F6F5A";
+const OPEN_LIGHT = "#9D2235"; // cherry: solid plate = open, outlined = closing
 const OPEN_DARK = "#F5B642";
 const DARK_INK = "#1A0E11";
 const DARK_MUTED_LINE = "#8F7880";
