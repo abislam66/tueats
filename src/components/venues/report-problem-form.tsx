@@ -28,9 +28,12 @@ const HONEYPOT_STYLE = {
 export function ReportProblemForm({
   venueId,
   venueName,
+  compact = false,
 }: {
   venueId: string;
   venueName: string;
+  /** Inline "Something's wrong?" link (status card) instead of a button. */
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
@@ -48,7 +51,16 @@ export function ReportProblemForm({
   }
 
   if (!open) {
-    return (
+    return compact ? (
+      <button
+        aria-expanded={false}
+        className="text-link status-card-report"
+        onClick={() => setOpen(true)}
+        type="button"
+      >
+        Something&apos;s wrong?
+      </button>
+    ) : (
       <Button onClick={() => setOpen(true)} variant="secondary">
         Report a problem
       </Button>

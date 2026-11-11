@@ -262,6 +262,14 @@ export function VenueExplorer({
     [venues, filters],
   );
   const filtersActive = query.length > 0;
+  // A selected venue a filter now hides keeps its ring on the map; only the
+  // list and cards follow the filters.
+  const mapVenues = useMemo(() => {
+    const selected = venues.find((venue) => venue.id === selectedId);
+    return selected && !visibleVenues.includes(selected)
+      ? [...visibleVenues, selected]
+      : visibleVenues;
+  }, [venues, selectedId, visibleVenues]);
 
   const trimmedQuery = filters.query.trim();
   const showSuggestions = searchFocused && trimmedQuery.length > 0;
@@ -285,12 +293,6 @@ export function VenueExplorer({
     const next = combined ? `/?${combined}` : "/";
     window.history.replaceState(window.history.state, "", next);
   }, [query, viewMode]);
-
-  useEffect(() => {
-    if (selectedId && !visibleVenues.some((venue) => venue.id === selectedId)) {
-      setSelectedId(null);
-    }
-  }, [selectedId, visibleVenues]);
 
   // Debounced so typing "cha cha" fires one event, not seven — and only
   // the length/result count are sent, never the query text itself.
@@ -439,7 +441,7 @@ export function VenueExplorer({
             phoneLayout={!isDesktop}
             selectedId={selectedId}
             selectedZones={filters.zones}
-            venues={visibleVenues}
+            venues={mapVenues}
           />
           {isDesktop ? null : (
             <PhoneHome

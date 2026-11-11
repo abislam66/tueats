@@ -125,9 +125,12 @@ function StatusCard({ venue }: { venue: Venue }) {
       >
         Get directions
       </a>
-      <p className="status-card-note">
-        Hours are a guide. Schedules can change.
-      </p>
+      <div className="status-card-secondary">
+        <p className="status-card-note">
+          Hours are a guide. Schedules can change.
+        </p>
+        <ReportProblemForm compact venueId={venue.id} venueName={venue.name} />
+      </div>
     </section>
   );
 }
@@ -269,9 +272,6 @@ export function VenueDetail({
           <p className="verification-date">
             Last verified <strong>{verified ?? "not yet"}</strong>
           </p>
-          {retired ? null : (
-            <ReportProblemForm venueId={venue.id} venueName={venue.name} />
-          )}
         </section>
       </main>
     </div>

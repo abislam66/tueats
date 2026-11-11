@@ -922,12 +922,12 @@ button {
 }
 
 .map-legend-swatch.is-open {
-  background: var(--color-cherry);
+  background: var(--open-fg);
 }
 
 .map-legend-swatch.is-closing {
   background: var(--color-surface);
-  border: 2px solid var(--color-accent);
+  border: 2px solid var(--open-fg);
 }
 
 .map-legend-swatch.is-closed {
@@ -4049,4 +4049,30 @@ html {
 
 .pl-map-pill:active {
   background: var(--color-cherry-hover);
+}
+
+/* Place page: "Something's wrong?" lives in the status card's second row. */
+.status-card-secondary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0 var(--spacing-md);
+  margin-top: var(--spacing-xs);
+}
+
+.status-card-secondary .status-card-note {
+  text-align: left;
+}
+
+.status-card-report {
+  min-height: 2.75rem;
+  padding: 0;
+  font-size: var(--text-small);
+  font-weight: 600;
+}
+
+.status-card-secondary .report-form,
+.status-card-secondary .report-success {
+  flex: 1 0 100%;
 }

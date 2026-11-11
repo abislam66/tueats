@@ -19,6 +19,8 @@
  * `text-field`.
  */
 
+import { currentTheme } from "@/lib/theme";
+
 import { truncateLabel } from "./venue-pin-rules";
 
 const SCALE = 3; // raster oversample for crisp rendering at typical zoom
@@ -56,7 +58,6 @@ const VENUE_HEIGHT =
   PAD + VENUE_PILL_HEIGHT + STEM_LINE_HEIGHT + STEM_DOT_RADIUS * 2 + BORDER;
 
 const INK = "#171310";
-const VENUE_FILL = "#9D2235"; // --color-cherry
 const VENUE_HALO = "rgba(157, 34, 53, 0.28)";
 const VENUE_TEXT = "#ffffff";
 
@@ -177,41 +178,98 @@ type StatusStyle = {
   stem?: string;
 };
 
-const STATUS_STYLES: Record<VenuePillStatus, StatusStyle> = {
-  open: { fill: VENUE_FILL, stroke: INK, text: VENUE_TEXT, border: 1.5 },
-  closing: { fill: "#FFFFFF", stroke: VENUE_FILL, text: VENUE_FILL, border: 2 },
-  closed: {
-    fill: CANVAS,
-    stroke: INK_SECONDARY,
-    text: INK_SECONDARY,
-    border: 1,
-    alpha: 0.82,
-    stem: INK_SECONDARY,
-  },
-  unknown: {
-    fill: "#FFFFFF",
-    stroke: BORDER_COLOR,
-    text: INK_SECONDARY,
-    border: 1.5,
-    dashed: true,
-    stem: INK_SECONDARY,
-  },
-};
+// Open uses --open-fg (green in light, amber in dark); everything else
+// reuses the theme's neutrals. Sprites are baked when the map is built, and
+// a theme switch rebuilds the map, so reading the theme here is enough.
+const OPEN_LIGHT = "#3F6F5A";
+const OPEN_DARK = "#F5B642";
+const DARK_INK = "#1A0E11";
+const DARK_MUTED_LINE = "#8F7880";
+
+function statusStyles(): Record<VenuePillStatus, StatusStyle> {
+  if (currentTheme() === "dark") {
+    return {
+      open: {
+        fill: OPEN_DARK,
+        stroke: DARK_INK,
+        text: DARK_INK,
+        border: 1.5,
+        stem: OPEN_DARK,
+      },
+      closing: {
+        fill: "#24141A",
+        stroke: OPEN_DARK,
+        text: OPEN_DARK,
+        border: 2,
+        stem: OPEN_DARK,
+      },
+      closed: {
+        fill: "#2C1920",
+        stroke: DARK_MUTED_LINE,
+        text: "#BBA3A9",
+        border: 1,
+        alpha: 0.9,
+        stem: DARK_MUTED_LINE,
+      },
+      unknown: {
+        fill: "#24141A",
+        stroke: DARK_MUTED_LINE,
+        text: "#BBA3A9",
+        border: 1.5,
+        dashed: true,
+        stem: DARK_MUTED_LINE,
+      },
+    };
+  }
+  return {
+    open: { fill: OPEN_LIGHT, stroke: INK, text: VENUE_TEXT, border: 1.5 },
+    closing: {
+      fill: "#FFFFFF",
+      stroke: OPEN_LIGHT,
+      text: OPEN_LIGHT,
+      border: 2,
+      stem: OPEN_LIGHT,
+    },
+    closed: {
+      fill: CANVAS,
+      stroke: INK_SECONDARY,
+      text: INK_SECONDARY,
+      border: 1,
+      alpha: 0.82,
+      stem: INK_SECONDARY,
+    },
+    unknown: {
+      fill: "#FFFFFF",
+      stroke: BORDER_COLOR,
+      text: INK_SECONDARY,
+      border: 1.5,
+      dashed: true,
+      stem: INK_SECONDARY,
+    },
+  };
+}
+
+function selectedRing(): { stroke: string; halo: string } {
+  return currentTheme() === "dark"
+    ? { stroke: "#F6EEF0", halo: "rgba(242, 154, 168, 0.4)" }
+    : { stroke: INK, halo: VENUE_HALO };
+}
 
 function venuePillStyle(
   status: VenuePillStatus,
   state: VenuePillState,
 ): PillStyle {
-  const s = STATUS_STYLES[status];
+  const s = statusStyles()[status];
+  const ring = selectedRing();
   // Hover/selected thicken the outline; selected adds the cherry halo.
   // The selected outline is always ink so it reads on every status.
   const active = state !== "normal";
   return {
     fill: s.fill,
-    stroke: state === "selected" ? INK : s.stroke,
+    stroke: state === "selected" ? ring.stroke : s.stroke,
     borderWidth: active ? Math.max(s.border, 2.25) : s.border,
     dashed: s.dashed && state !== "selected",
-    halo: state === "selected" ? VENUE_HALO : undefined,
+    halo: state === "selected" ? ring.halo : undefined,
     stemStroke: s.stem,
     radius: PLATE_RADIUS,
   };
@@ -338,7 +396,7 @@ export function buildVenuePillIcon(
   ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
   ctx.font = font; // canvas resize resets state
 
-  const statusStyle = STATUS_STYLES[status];
+  const statusStyle = statusStyles()[status];
   // Closed plates fade, but a selected one returns to full strength.
   ctx.globalAlpha = state === "selected" ? 1 : (statusStyle.alpha ?? 1);
   paintPill(ctx, pillWidth, VENUE_PILL_HEIGHT, venuePillStyle(status, state));
@@ -388,7 +446,7 @@ function toAsset(
 export function buildVenueDotIcon(status: VenuePillStatus): VenuePillIconAsset {
   const size = DOT_DIAMETER + DOT_BORDER * 2;
   const { canvas, ctx } = freshCanvas(size);
-  const s = STATUS_STYLES[status];
+  const s = statusStyles()[status];
   ctx.globalAlpha = s.alpha ?? 1;
   ctx.beginPath();
   ctx.arc(size / 2, size / 2, DOT_DIAMETER / 2, 0, Math.PI * 2);
@@ -396,7 +454,7 @@ export function buildVenueDotIcon(status: VenuePillStatus): VenuePillIconAsset {
   ctx.fill();
   ctx.lineWidth = DOT_BORDER;
   // The unknown plate's pale dashed border would vanish at 6px.
-  ctx.strokeStyle = status === "unknown" ? INK_SECONDARY : s.stroke;
+  ctx.strokeStyle = status === "unknown" ? (s.stem ?? s.stroke) : s.stroke;
   ctx.stroke();
   return toAsset(canvas, ctx);
 }
@@ -417,7 +475,7 @@ export function buildClusterBubbleIcon(
   const { canvas, ctx } = freshCanvas(size);
   ctx.font = font;
 
-  const s = STATUS_STYLES[status];
+  const s = statusStyles()[status];
   const active = state !== "normal";
   const c = size / 2;
   ctx.globalAlpha = s.alpha ?? 1;
@@ -438,7 +496,7 @@ export function buildClusterBubbleIcon(
   ctx.fillStyle = s.fill;
   ctx.fill();
   ctx.lineWidth = border;
-  ctx.strokeStyle = status === "unknown" ? INK_SECONDARY : s.stroke;
+  ctx.strokeStyle = status === "unknown" ? (s.stem ?? s.stroke) : s.stroke;
   ctx.stroke();
 
   ctx.fillStyle = s.text;
