@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { getMockVenueBySlug } from "@/lib/venue-fixtures";
-import { groupVenuesByStatus, venuePlainLine } from "@/lib/venue-groups";
+import {
+  groupVenuesByStatus,
+  locationPhrase,
+  venuePlainLine,
+} from "@/lib/venue-groups";
 import type { Venue } from "@/lib/venues";
 
 const base = getMockVenueBySlug("cherry-cart")!;
@@ -83,7 +87,7 @@ describe("venuePlainLine", () => {
       building: address,
       mapZone: null,
     });
-    expect(noZone).toBe("American, in 1422 Cecil B. Moore Ave");
+    expect(noZone).toBe("American, on 1422 Cecil B. Moore Ave");
   });
 
   it("handles a venue with no cuisine, halal flag, building or zone", () => {
@@ -96,5 +100,28 @@ describe("venuePlainLine", () => {
         mapZone: null,
       }),
     ).toBe("");
+  });
+});
+
+describe("locationPhrase", () => {
+  const at = (building: string | null, extra: Partial<Venue> = {}) =>
+    ({ ...base, type: "restaurant", mapZone: null, building, ...extra }) as Venue;
+
+  it("says 'on' for streets, avenues and walks", () => {
+    expect(locationPhrase(at("Cecil B. Moore Ave"))).toBe("on Cecil B. Moore Ave");
+    expect(locationPhrase(at("Liacouras Walk"))).toBe("on Liacouras Walk");
+    expect(locationPhrase(at("1501 N Broad St"))).toBe("on 1501 N Broad St");
+    expect(locationPhrase(at("Oxford Rd"))).toBe("on Oxford Rd");
+  });
+
+  it("says 'in' for any other area, and never matches inside a word", () => {
+    expect(locationPhrase(at("Avery"))).toBe("in Avery");
+    expect(locationPhrase(at("Student Center"))).toBe("in Student Center");
+    expect(locationPhrase(at("The Wall"))).toBe("in The Wall");
+  });
+
+  it("keeps trucks approximate and returns null with no location", () => {
+    expect(locationPhrase(at("Avery", { type: "truck" }))).toBe("near Avery");
+    expect(locationPhrase(at(null))).toBeNull();
   });
 });

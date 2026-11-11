@@ -128,6 +128,20 @@ export function venuePlaceName(venue: Venue): string | null {
   return building ?? zone;
 }
 
+const STREET_WORD = /\b(Street|St|Ave|Avenue|Walk|Blvd|Road|Rd)\b/i;
+
+/**
+ * "on Cecil B. Moore Ave" for a street or walk, "in Avery" for any other
+ * area, "near ..." for a truck (it moves, so it's only ever approximate).
+ * Null when the venue has no usable location.
+ */
+export function locationPhrase(venue: Venue): string | null {
+  const place = venuePlaceName(venue);
+  if (!place) return null;
+  if (STREET_WORD.test(place)) return `on ${place}`;
+  return `${venue.type === "truck" ? "near" : "in"} ${place}`;
+}
+
 /**
  * One plain-words line for a row: "American and halal, in Avery".
  * Cuisine names (max two) + halal, then a short place name.
@@ -139,10 +153,7 @@ export function venuePlainLine(venue: Venue): string {
   });
   if (venue.isHalal) kinds.push(kinds.length ? "halal" : "Halal");
   const what = joinAnd(kinds);
-  const place = venuePlaceName(venue);
-  const where = place
-    ? `${venue.type === "truck" ? "near" : "in"} ${place}`
-    : "";
+  const where = locationPhrase(venue) ?? "";
   if (what && where) return `${what}, ${where}`;
   return what || (where ? where[0]!.toUpperCase() + where.slice(1) : "");
 }

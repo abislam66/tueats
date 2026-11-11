@@ -12,21 +12,18 @@ import { usePostHog } from "posthog-js/react";
 import { VenueMapLoader } from "@/components/map/venue-map-loader";
 import { SiteHeader } from "@/components/layout/site-header";
 import type { HeaderSession } from "@/components/layout/user-avatar";
-import { MobileSheet } from "@/components/ui/mobile-sheet";
 import { Button } from "@/components/ui/primitives";
 import {
   MapSearchOverlay,
   type SearchSuggestion,
 } from "@/components/venues/map-search-overlay";
 import { PhoneClock, PhoneHome } from "@/components/venues/phone-home";
+import { PhoneListHome } from "@/components/venues/phone-list-home";
 import { PlacesOfTheWeekPanel } from "@/components/venues/places-of-the-week-panel";
 import { VenueList } from "@/components/venues/venue-list";
 import { AnalyticsEvent } from "@/lib/analytics";
 import { isOpenNow } from "@/lib/hours";
-import {
-  DESKTOP_MEDIA_QUERY,
-  type MobileSheetSnap,
-} from "@/lib/mobile-sheet-heights";
+import { DESKTOP_MEDIA_QUERY } from "@/lib/mobile-sheet-heights";
 import type { Venue } from "@/lib/venues";
 import {
   countUnknownHours,
@@ -132,17 +129,9 @@ export function VenueExplorer({
     // so old links/bookmarks land on Places of the Week.
     return view === "places" || view === "hotspots" ? "places" : "map";
   });
-  // The results sheet now overlays the map at every breakpoint — map
-  // dominates on load, so it starts collapsed everywhere, not just mobile.
-  // A bookmarked "?view=restaurants" link opens straight to the list.
-  const [snap, setSnap] = useState<MobileSheetSnap>(() =>
-    initialParams.get("view") === "restaurants" ? "peek" : "collapsed",
-  );
-  // Phone: the list lives behind "See all" and opens at the full snap.
-  const [phoneSheetOpen, setPhoneSheetOpen] = useState(() => {
-    const view = initialParams.get("view");
-    return view === "restaurants" || view === "places" || view === "hotspots";
-  });
+  // Phone: list first. The map is one tap away ("Map" pill) and is not
+  // even mounted until then.
+  const [phoneView, setPhoneView] = useState<"list" | "map">("list");
   // On mobile, selecting a venue swaps the sheet into a preview card (no
   // room for both a browse view and a floating mini-card at once). On
   // desktop the mini-card handles the selection instead — the sheet stays
@@ -218,19 +207,24 @@ export function VenueExplorer({
     selectFromSearch(venueId);
   }
 
-  function selectFromPhoneList(venueId: string | null) {
-    selectFromList(venueId);
-    setPhoneSheetOpen(false);
+  // Phone list rows open the place page (the same route "View details" and
+  // the cards' Hours button use); the map keeps its own selection flow.
+  function openPlacePage(venue: Venue) {
+    captureVenueSelected(venue.id, "list");
+    router.push(`/eat/${venue.slug}?from=${encodeURIComponent(backPath)}`);
   }
 
-  function openPhoneSheet() {
-    setSnap("full");
-    setPhoneSheetOpen(true);
+  function prefetchPlacePage(venue: Venue) {
+    router.prefetch(`/eat/${venue.slug}`);
   }
 
-  function closePhoneSheet() {
-    setPhoneSheetOpen(false);
-    setViewMode("map");
+  function showPhoneMap() {
+    setPhoneView("map");
+  }
+
+  function showPhoneList() {
+    setSelectedId(null);
+    setPhoneView("list");
   }
 
   function handleSearchBlur(event: ReactFocusEvent<HTMLInputElement>) {
@@ -254,7 +248,7 @@ export function VenueExplorer({
   function openPlaces() {
     posthog.capture(AnalyticsEvent.PlacesOfWeekViewed);
     setViewMode("places");
-    setSnap((current) => (current === "collapsed" ? "peek" : current));
+    setPhoneView("list");
   }
 
   const query = serializeVenueFilters(filters);
@@ -336,8 +330,6 @@ export function VenueExplorer({
     if (venue) router.prefetch(`/eat/${venue.slug}`);
   }, [hoveredId, selectedId, venues, router]);
 
-  const onListSelect = isDesktop ? selectFromList : selectFromPhoneList;
-
   const sheetBody =
     viewMode === "places" ? (
       <>
@@ -351,7 +343,7 @@ export function VenueExplorer({
         <PlacesOfTheWeekPanel
           hoveredId={hoveredId}
           onHover={setHoveredId}
-          onSelect={onListSelect}
+          onSelect={selectFromList}
           selectedId={selectedId}
           venues={venues}
         />
@@ -363,7 +355,7 @@ export function VenueExplorer({
         onClearFilters={clearFilters}
         onHover={setHoveredId}
         onPlaces={openPlaces}
-        onSelect={onListSelect}
+        onSelect={selectFromList}
         openNowActive={filters.openNow}
         selectedId={selectedId}
         unknownHours={unknownHours}
@@ -397,7 +389,7 @@ export function VenueExplorer({
       <SiteHeader
         onHome={goHome}
         onPlaces={openPlaces}
-        phoneSlot={isDesktop ? undefined : <PhoneClock />}
+        phoneSlot={isDesktop || phoneView === "list" ? undefined : <PhoneClock />}
         session={session}
         viewMode={viewMode}
       />
@@ -408,64 +400,64 @@ export function VenueExplorer({
           <div className="explorer-pane-body">{sheetBody}</div>
         </aside>
       ) : null}
-      <div className="explorer-map">
-        <VenueMapLoader
-          backPath={backPath}
-          hoveredId={hoveredId}
-          isSignedIn={session !== null}
-          onClearSelection={() => setSelectedId(null)}
-          onHover={setHoveredId}
-          onSelect={selectFromMap}
-          locateSlot={locateSlot}
-          phoneLayout={!isDesktop}
-          onSelectZone={(key) => {
-            posthog.capture(AnalyticsEvent.ZoneSelected, { zone: key });
-            setFilters((current) => ({
-              ...current,
-              zones: key ? [key] : [],
-            }));
-          }}
-          selectedId={selectedId}
-          selectedZones={filters.zones}
-          venues={visibleVenues}
-        />
-        {isDesktop || phoneSheetOpen ? null : (
-          <PhoneHome
-            backPath={backPath}
-            filters={filters}
-            locateSlotRef={setLocateSlot}
-            onClearFilters={clearFilters}
-            onFiltersChange={setFilters}
-            onPickSearch={pickFromPhoneSearch}
-            onSeeAll={openPhoneSheet}
-            onSelectCard={selectFromList}
-            selectedId={selectedId}
-            venues={venues}
-            visibleVenues={visibleVenues}
-          />
-        )}
-      </div>
-      {isDesktop || !phoneSheetOpen ? null : (
-        <div className="results-sheet-region">
-          <MobileSheet
-            mode="browse"
-            onSnapChange={(next) => {
-              if (next === "full") setSnap(next);
-              else closePhoneSheet();
-            }}
-            snap={snap}
-          >
-            <button
-              className="phone-sheet-close"
-              onClick={closePhoneSheet}
-              type="button"
-            >
-              Close
-            </button>
-            {sheetBody}
-          </MobileSheet>
+      {!isDesktop && phoneView === "list" ? (
+        <div className="phone-list-view">
+          {viewMode === "places" ? (
+            <div className="pl-places">{sheetBody}</div>
+          ) : (
+            <PhoneListHome
+              filters={filters}
+              onClearFilters={clearFilters}
+              onFiltersChange={setFilters}
+              onMap={showPhoneMap}
+              onOpenVenue={openPlacePage}
+              onPlaces={openPlaces}
+              onPrefetchVenue={prefetchPlacePage}
+              venues={venues}
+              visibleVenues={visibleVenues}
+            />
+          )}
         </div>
-      )}
+      ) : null}
+      {isDesktop || phoneView === "map" ? (
+        <div className="explorer-map">
+          <VenueMapLoader
+            backPath={backPath}
+            hoveredId={hoveredId}
+            isSignedIn={session !== null}
+            locateSlot={locateSlot}
+            onClearSelection={() => setSelectedId(null)}
+            onHover={setHoveredId}
+            onSelect={selectFromMap}
+            onSelectZone={(key) => {
+              posthog.capture(AnalyticsEvent.ZoneSelected, { zone: key });
+              setFilters((current) => ({
+                ...current,
+                zones: key ? [key] : [],
+              }));
+            }}
+            phoneLayout={!isDesktop}
+            selectedId={selectedId}
+            selectedZones={filters.zones}
+            venues={visibleVenues}
+          />
+          {isDesktop ? null : (
+            <PhoneHome
+              backPath={backPath}
+              filters={filters}
+              locateSlotRef={setLocateSlot}
+              onClearFilters={clearFilters}
+              onFiltersChange={setFilters}
+              onPickSearch={pickFromPhoneSearch}
+              onSeeAll={showPhoneList}
+              onSelectCard={selectFromList}
+              selectedId={selectedId}
+              venues={venues}
+              visibleVenues={visibleVenues}
+            />
+          )}
+        </div>
+      ) : null}
     </main>
   );
 }
