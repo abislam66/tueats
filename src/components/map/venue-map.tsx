@@ -20,6 +20,8 @@ import {
   VENUE_HIT_LAYER_IDS,
 } from "@/components/map/venue-pill-layer";
 import { declutterBasemap } from "@/lib/map/basemap-declutter";
+import { applyDarkBasemap, mapStyleUrl } from "@/lib/map/map-theme";
+import { useTheme } from "@/lib/theme";
 import { OpenStatus } from "@/components/venues/venue-bits";
 import {
   MAP_ZONE_KEYS,
@@ -32,7 +34,6 @@ import {
   CAMPUS_BOUNDS,
   CAMPUS_MAX_BOUNDS,
   DEFAULT_VIEWPORT,
-  MAP_STYLE_URL,
 } from "@/config/site";
 import { formatCampusNow, formatClockTime, getOpenStatus } from "@/lib/hours";
 import { useMinuteClock } from "@/lib/use-minute-clock";
@@ -127,6 +128,10 @@ export function VenueMap({
   const onSelectZoneRef = useRef(onSelectZone);
   const enteringZoneRef = useRef(false);
   const selectedZonesRef = useRef<MapZoneKey[]>(selectedZones);
+  const theme = useTheme();
+  const cameraRef = useRef<{ center: [number, number]; zoom: number } | null>(
+    null,
+  );
   const [map, setMap] = useState<MapLibreMap | null>(null);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -236,9 +241,9 @@ export function VenueMap({
 
       const instance = new maplibre.Map({
         container: containerRef.current,
-        style: MAP_STYLE_URL,
-        center: DEFAULT_VIEWPORT.center,
-        zoom: DEFAULT_VIEWPORT.zoom,
+        style: mapStyleUrl(theme),
+        center: cameraRef.current?.center ?? DEFAULT_VIEWPORT.center,
+        zoom: cameraRef.current?.zoom ?? DEFAULT_VIEWPORT.zoom,
         maxBounds: CAMPUS_MAX_BOUNDS,
         minZoom: 13.5,
         maxZoom: 18.5,
@@ -250,17 +255,20 @@ export function VenueMap({
 
       mapRef.current = instance;
 
-      instance.fitBounds(
-        [
-          [CAMPUS_BOUNDS.west, CAMPUS_BOUNDS.south],
-          [CAMPUS_BOUNDS.east, CAMPUS_BOUNDS.north],
-        ],
-        {
-          padding: 48,
-          duration: 0,
-          maxZoom: DEFAULT_VIEWPORT.zoom,
-        },
-      );
+      // A theme switch rebuilds the map; keep the camera where it was.
+      if (!cameraRef.current) {
+        instance.fitBounds(
+          [
+            [CAMPUS_BOUNDS.west, CAMPUS_BOUNDS.south],
+            [CAMPUS_BOUNDS.east, CAMPUS_BOUNDS.north],
+          ],
+          {
+            padding: 48,
+            duration: 0,
+            maxZoom: DEFAULT_VIEWPORT.zoom,
+          },
+        );
+      }
 
       instance.once("load", () => {
         if (disposed) return;
@@ -304,11 +312,22 @@ export function VenueMap({
 
     return () => {
       disposed = true;
-      mapRef.current?.remove();
+      const current = mapRef.current;
+      if (current) {
+        const center = current.getCenter();
+        cameraRef.current = {
+          center: [center.lng, center.lat],
+          zoom: current.getZoom(),
+        };
+        // Layer effects still hold this instance until the setMap(null)
+        // render lands; removing it a tick later keeps their cleanups safe.
+        window.setTimeout(() => current.remove(), 0);
+      }
       mapRef.current = null;
       setMap(null);
+      setReady(false);
     };
-  }, []);
+  }, [theme]);
 
   // Basemap down to small muted street names; building / POI / place
   // labels and the campus-building overlay's text are hidden. Re-run on
@@ -316,13 +335,16 @@ export function VenueMap({
   // (declutterBasemap only writes when something differs).
   useEffect(() => {
     if (!map) return;
-    const run = () => declutterBasemap(map);
+    const run = () => {
+      if (theme === "dark") applyDarkBasemap(map);
+      declutterBasemap(map, theme);
+    };
     run();
     map.on("styledata", run);
     return () => {
       map.off("styledata", run);
     };
-  }, [map]);
+  }, [map, theme]);
 
   useEffect(() => {
     if (!map) return;

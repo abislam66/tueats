@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 
 import { beforeIdFor, liftOverlaysAboveBasemap } from "@/lib/map/overlay-order";
+import { currentTheme } from "@/lib/theme";
 
 const SOURCE_ID = "campus-buildings";
 const FILL_LAYER_ID = "campus-buildings-fill";
@@ -18,6 +19,7 @@ const GEOJSON_URL = "/maps/campus-buildings.geojson?v=athletics-1";
 export function CampusBuildingLayer({ map }: { map: MapLibreMap | null }) {
   useEffect(() => {
     if (!map) return;
+    const dark = currentTheme() === "dark";
 
     let cancelled = false;
 
@@ -42,8 +44,12 @@ export function CampusBuildingLayer({ map }: { map: MapLibreMap | null }) {
           type: "fill",
           source: SOURCE_ID,
           paint: {
-            "fill-color": ["coalesce", ["get", "fill"], "#EAE9E4"],
-            "fill-opacity": ["coalesce", ["get", "fillOpacity"], 0.92],
+            "fill-color": dark
+              ? "#2A1820"
+              : ["coalesce", ["get", "fill"], "#EAE9E4"],
+            "fill-opacity": dark
+              ? 0.95
+              : ["coalesce", ["get", "fillOpacity"], 0.92],
           },
         },
         beforeIdFor(map, FILL_LAYER_ID),
@@ -55,7 +61,9 @@ export function CampusBuildingLayer({ map }: { map: MapLibreMap | null }) {
           type: "line",
           source: SOURCE_ID,
           paint: {
-            "line-color": ["coalesce", ["get", "stroke"], "#C5C4BE"],
+            "line-color": dark
+              ? "#4A3039"
+              : ["coalesce", ["get", "stroke"], "#C5C4BE"],
             "line-width": [
               "interpolate",
               ["linear"],
@@ -112,7 +120,9 @@ export function CampusBuildingLayer({ map }: { map: MapLibreMap | null }) {
             ],
           },
           paint: {
-            "text-color": ["coalesce", ["get", "labelColor"], "#3D3A35"],
+            "text-color": dark
+              ? "#BBA3A9"
+              : ["coalesce", ["get", "labelColor"], "#3D3A35"],
             "text-halo-color": "rgba(255,255,255,0.88)",
             "text-halo-width": 1.25,
             "text-halo-blur": 0.4,

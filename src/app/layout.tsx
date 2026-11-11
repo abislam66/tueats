@@ -4,10 +4,10 @@ import { Bricolage_Grotesque, Figtree } from "next/font/google";
 import "./globals.css";
 
 import { RecoveryRedirect } from "@/components/auth/recovery-redirect";
+import { THEME_INIT_SCRIPT } from "@/lib/theme";
 
 // Display: wordmark, venue names, times, headings. Body: UI text.
 const bricolage = Bricolage_Grotesque({
-  weight: ["500", "600", "700", "800"],
   subsets: ["latin"],
   display: "swap",
   variable: "--font-bricolage",
@@ -67,7 +67,11 @@ export default function RootLayout({
     <html
       className={`${bricolage.variable} ${figtree.variable}`}
       lang="en"
+      suppressHydrationWarning
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body>
         <RecoveryRedirect />
         {children}

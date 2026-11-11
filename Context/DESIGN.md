@@ -66,7 +66,7 @@
 }
 ```
 
-- **Dark mode:** Not in Phase 1. If added later, redesign surfaces (ink canvas + cream type) — do not merely invert.
+- **Themes:** Light (default values above) and dark (`[data-theme="dark"]`: bg #1A0E11, surface #24141A, selected row #3A1A22, border #3A242B / strong #5A3F48, text #F6EEF0, muted #BBA3A9, accent #F29AA8; cherry #9D2235 stays for buttons only). The header toggle stores the choice in localStorage; with none saved, the system preference wins. An inline script sets `data-theme` before paint. `--open-fg` (light #3F6F5A, dark #F5B642) is the open color for times and pins. `--color-accent` is the readable cherry for text, links and focus rings.
 
 ## Spacing
 
@@ -211,6 +211,7 @@ Maps to `Specs/architecture-planning.md`:
 
 ## Decisions Log
 
+| 2026-11-10 | Both themes, user toggle, default follows system | Dark was deferred in Phase 1; students check this at night. Tokens swap under `[data-theme]`; open status is amber in dark (`--open-fg`) so it never relies on telling green from red. Warning/danger are lightened in dark and muted text is darkened in light only to hold 4.5:1. The map rebuilds with OpenFreeMap's dark style (warm paint overrides in `map-theme.ts`) on toggle and keeps its camera. |
 | 2026-11-10 | phone: card carousel replaces sheet-first home | Below 64rem the home is header (wordmark, "Mon 9:40 PM", account) + full map + a bottom stack: search button and Open now / Halal / Cuisine / Zone chips, a scroll-snap carousel of up to 20 venue cards (300px, group order from `venue-groups.ts`), and "See all N open places", which opens the existing list in the existing sheet at full. Swiping selects and flies the map; a pin tap scrolls to its card; on phone, selecting no longer sets the venue's zone filter (it would shrink the carousel to one zone). Search replaces the chips in place, ignores Open now, lists open (latest close first) then closed. Legend, floating search card and zone plates are hidden on phone (zones are 11px text); one locate button top-right. Desktop unchanged (`phone-home.tsx`, `phone-card-carousel.tsx`, `phone-search.tsx`). |
 | 2026-11-09 | Plain-words line uses a short place name; long names clamp | `building` often holds a full street address, which made rows wrap to 3 lines. The line now prefers a landmark as typed, otherwise the zone name, otherwise the street only (`venuePlaceName`). Row names clamp at 3 lines, map plates truncate at 190px with an ellipsis, long place-page titles wrap. |
 | 2026-11-09 | Motion audit: remove decoration, keep what explains a change | Removed the pixel-press translate, the mini-card hover lift (a popover the pointer sits inside shouldn't move) and dead HUD CSS. Row feedback is now micro (100ms). The mini-card exit is 100ms ease-in. List `scrollIntoView` now honors reduced motion (an explicit "smooth" overrides the CSS rule). Motion section rewritten to what is actually built. |

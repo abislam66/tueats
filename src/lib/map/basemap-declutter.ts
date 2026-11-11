@@ -15,6 +15,9 @@
 export const STREET_LABEL_LAYER_IDS = [
   "highway-name-minor",
   "highway-name-major",
+  // The dark style names them differently.
+  "highway_name_other",
+  "highway_name_motorway",
 ] as const;
 
 /** TuEats' own symbol layers; never hidden here. */
@@ -26,6 +29,7 @@ export const OWN_SYMBOL_LAYER_IDS = [
 ] as const;
 
 export const STREET_LABEL_COLOR = "#A8A29E";
+export const STREET_LABEL_COLOR_DARK = "#8F7880";
 export const STREET_LABEL_SIZE = [
   "interpolate",
   ["linear"],
@@ -70,14 +74,28 @@ function setPaint(map: DeclutterMap, id: string, name: string, value: unknown) {
   }
 }
 
-export function declutterBasemap(map: DeclutterMap): void {
+export function declutterBasemap(
+  map: DeclutterMap,
+  theme: "light" | "dark" = "light",
+): void {
+  const dark = theme === "dark";
   const layers = map.getStyle()?.layers ?? [];
   for (const layer of layers) {
     if (layer.type !== "symbol" || OWN.has(layer.id)) continue;
     if (STREET.has(layer.id)) {
       setLayout(map, layer.id, "text-size", STREET_LABEL_SIZE);
-      setPaint(map, layer.id, "text-color", STREET_LABEL_COLOR);
-      setPaint(map, layer.id, "text-halo-color", "rgba(255,255,255,0.8)");
+      setPaint(
+        map,
+        layer.id,
+        "text-color",
+        dark ? STREET_LABEL_COLOR_DARK : STREET_LABEL_COLOR,
+      );
+      setPaint(
+        map,
+        layer.id,
+        "text-halo-color",
+        dark ? "rgba(26,14,17,0.85)" : "rgba(255,255,255,0.8)",
+      );
       setPaint(map, layer.id, "text-halo-width", 1);
       continue;
     }

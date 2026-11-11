@@ -5,6 +5,7 @@ import type { Map as MapLibreMap } from "maplibre-gl";
 
 import { CAMPUS_DINING_MARKERS } from "@/config/campus-dining";
 import { beforeIdFor, liftOverlaysAboveBasemap } from "@/lib/map/overlay-order";
+import { currentTheme } from "@/lib/theme";
 import {
   buildDiningPillIcon,
   DINING_PILL_ICON,
@@ -116,7 +117,7 @@ export function CampusDiningLayer({
         paint: {
           "icon-opacity": DINING_PIN_OPACITY,
           "text-opacity": DINING_PIN_OPACITY,
-          "text-color": "#57534E",
+          "text-color": currentTheme() === "dark" ? "#BBA3A9" : "#57534E",
         },
       },
       beforeIdFor(map, CAMPUS_DINING_LAYER_ID),

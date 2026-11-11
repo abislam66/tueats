@@ -6,6 +6,7 @@ import type { MouseEvent, ReactNode } from "react";
 
 import { formatCampusNow } from "@/lib/hours";
 import { useMinuteClock } from "@/lib/use-minute-clock";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
 import {
   UserAvatar,
   type HeaderSession,
@@ -81,6 +82,7 @@ export function HeaderNav({
       <Link className="header-action" href="/about">
         About
       </Link>
+      <ThemeToggle />
       <UserAvatar session={session} />
     </nav>
   );
