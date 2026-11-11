@@ -10,6 +10,7 @@ import {
 import { useRouter } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
 
+import { inViewport, type ViewportBounds } from "@/lib/map/viewport";
 import { VenueMapLoader } from "@/components/map/venue-map-loader";
 import { SiteHeader } from "@/components/layout/site-header";
 import type { HeaderSession } from "@/components/layout/user-avatar";
@@ -68,8 +69,14 @@ function ResultsPanel({
   now,
   sort,
   location,
+  showAll,
+  totalCount,
+  onToggleAll,
 }: {
   venues: Venue[];
+  showAll: boolean;
+  totalCount: number;
+  onToggleAll: () => void;
   now: Date;
   sort: VenueSort;
   location: { lat: number; lng: number } | null;
@@ -88,7 +95,18 @@ function ResultsPanel({
       <div className="results-summary" aria-live="polite">
         <span>
           {venues.length} {venues.length === 1 ? "place" : "places"}
+          {showAll ? "" : " on screen"}
         </span>
+        {showAll || totalCount > venues.length ? (
+          <button
+            aria-pressed={showAll}
+            className="text-link results-show-all"
+            onClick={onToggleAll}
+            type="button"
+          >
+            {showAll ? "On-screen only" : `Show all ${totalCount} places`}
+          </button>
+        ) : null}
         {unknownHours > 0 ? (
           <span className="unknown-count">
             +{unknownHours} with unknown hours
@@ -169,6 +187,8 @@ export function VenueExplorer({
   // even mounted until then.
   const [phoneView, setPhoneView] = useState<"list" | "map">("list");
   const [sort, setSort] = useState<VenueSort>("earliest");
+  const [viewport, setViewport] = useState<ViewportBounds | null>(null);
+  const [showAll, setShowAll] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   const [sortOpener, setSortOpener] = useState<HTMLElement | null>(null);
   const location = useGrantedLocation();
@@ -341,6 +361,16 @@ export function VenueExplorer({
       : visibleVenues;
   }, [venues, selectedId, visibleVenues]);
 
+  // The map drives the set: what is inside its box right now. Until the
+  // map reports (or while it is not mounted) everything counts.
+  const viewVenues = useMemo(
+    () =>
+      viewport
+        ? visibleVenues.filter((venue) => inViewport(viewport, venue))
+        : visibleVenues,
+    [visibleVenues, viewport],
+  );
+
   const trimmedQuery = filters.query.trim();
   const showSuggestions = searchFocused && trimmedQuery.length > 0;
   // Suggestions are just the already-filtered visible set (name + cuisine
@@ -434,7 +464,10 @@ export function VenueExplorer({
         now={now}
         sort={effectiveSort}
         unknownHours={unknownHours}
-        venues={visibleVenues}
+        onToggleAll={() => setShowAll((value) => !value)}
+        showAll={showAll}
+        totalCount={visibleVenues.length}
+        venues={showAll ? visibleVenues : viewVenues}
       />
     );
 
@@ -509,6 +542,7 @@ export function VenueExplorer({
             initialCamera={cameraMemory.current}
             isSignedIn={session !== null}
             locateSlot={locateSlot}
+            onViewportChange={setViewport}
             onCameraSave={(camera) => {
               cameraMemory.current = camera;
             }}
@@ -541,6 +575,9 @@ export function VenueExplorer({
               selectedId={selectedId}
               venues={venues}
               visibleVenues={visibleVenues}
+              viewVenues={viewVenues}
+              sort={effectiveSort}
+              location={location}
             />
           )}
         </div>

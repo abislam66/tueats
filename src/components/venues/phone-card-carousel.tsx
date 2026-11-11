@@ -15,7 +15,6 @@ export type PhoneCardItem = GroupedVenue & { group: VenueGroupKey };
 
 // Matches .phone-cards padding-left; cards snap to this inset.
 const SNAP_INSET_PX = 16;
-const SETTLE_MS = 120;
 const TWEEN_MS = 180;
 
 function prefersReducedMotion(): boolean {
@@ -56,9 +55,9 @@ function CardBody({ item }: { item: PhoneCardItem }) {
 }
 
 /**
- * Horizontal scroll-snap cards. Swiping to a card selects it (the map
- * flies there through the normal selectedId path); a selection made
- * anywhere else (pin tap, search) scrolls its card into place.
+ * Horizontal scroll-snap cards. Only a tap selects: swiping never changes
+ * the selection or moves the map. A selection made anywhere (card tap, pin
+ * tap, search) scrolls its card into place.
  */
 export function PhoneCardCarousel({
   items,
@@ -75,13 +74,9 @@ export function PhoneCardCarousel({
 }) {
   const scrollerRef = useRef<HTMLUListElement>(null);
   const cardRefs = useRef(new Map<string, HTMLLIElement>());
-  const programmatic = useRef(false);
-  const settleTimer = useRef<number | undefined>(undefined);
   const tweenFrame = useRef<number | undefined>(undefined);
   const selectedIdRef = useRef(selectedId);
-  const onSelectRef = useRef(onSelect);
   selectedIdRef.current = selectedId;
-  onSelectRef.current = onSelect;
 
   const itemsKey = items.map((item) => item.venue.id).join("|");
 
@@ -98,7 +93,6 @@ export function PhoneCardCarousel({
     const from = scroller.scrollLeft;
     if (Math.abs(target - from) < 1) return;
     if (tweenFrame.current) cancelAnimationFrame(tweenFrame.current);
-    programmatic.current = true;
     if (!smooth) {
       scroller.scrollLeft = target;
       return;
@@ -120,36 +114,7 @@ export function PhoneCardCarousel({
     tweenFrame.current = requestAnimationFrame(step);
   }
 
-  function settle() {
-    if (programmatic.current) {
-      programmatic.current = false;
-      return;
-    }
-    const scroller = scrollerRef.current;
-    if (!scroller) return;
-    let nearestId: string | null = null;
-    let nearest = Number.POSITIVE_INFINITY;
-    for (const [id, card] of cardRefs.current) {
-      const distance = Math.abs(
-        card.offsetLeft - SNAP_INSET_PX - scroller.scrollLeft,
-      );
-      if (distance < nearest) {
-        nearest = distance;
-        nearestId = id;
-      }
-    }
-    if (nearestId && nearestId !== selectedIdRef.current) {
-      onSelectRef.current(nearestId);
-    }
-  }
-
-  function onScroll() {
-    window.clearTimeout(settleTimer.current);
-    settleTimer.current = window.setTimeout(settle, SETTLE_MS);
-  }
-
-  // A new card set (filters changed): jump without animating, and never
-  // treat the jump as a swipe.
+  // A new card set (filters changed, map panned): jump without animating.
   useLayoutEffect(() => {
     const x = selectedIdRef.current ? cardX(selectedIdRef.current) : null;
     scrollToX(x ?? 0, false);
@@ -163,7 +128,6 @@ export function PhoneCardCarousel({
 
   useEffect(
     () => () => {
-      window.clearTimeout(settleTimer.current);
       if (tweenFrame.current) cancelAnimationFrame(tweenFrame.current);
     },
     [],
@@ -185,7 +149,7 @@ export function PhoneCardCarousel({
   }
 
   return (
-    <ul aria-label="Places" className="phone-cards" onScroll={onScroll} ref={scrollerRef}>
+    <ul aria-label="Places" className="phone-cards" ref={scrollerRef}>
       {items.map((item) => {
         const { venue } = item;
         const selected = venue.id === selectedId;

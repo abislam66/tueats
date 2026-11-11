@@ -15,6 +15,24 @@ export const PLATE_LABEL_MAX_CHARS = 14;
  */
 export const ALL_PLATES_MIN_ZOOM = 16;
 
+/** Below this zoom only open / closing venues show, as at most MAX_OVERVIEW_PINS pins. */
+export const OPEN_ONLY_MAX_ZOOM = 15;
+export const MAX_OVERVIEW_PINS = 12;
+
+export type PinDensity = "open-only" | "open-plates" | "all-plates";
+
+/**
+ * How much the map shows at a zoom:
+ * - under 15: open venues only (closed hidden), capped, clusters as bubbles;
+ * - 15 to 16: open + closing as plates, closed as small dots;
+ * - 16 and up: every venue as a plate, collision demoting losers to dots.
+ */
+export function pinDensity(zoom: number): PinDensity {
+  if (zoom < OPEN_ONLY_MAX_ZOOM) return "open-only";
+  if (zoom < ALL_PLATES_MIN_ZOOM) return "open-plates";
+  return "all-plates";
+}
+
 /** "Maxi's Pizza, Subs and Bar" → "Maxi's Pizza,…" (full name lives elsewhere). */
 export function truncateLabel(
   name: string,
