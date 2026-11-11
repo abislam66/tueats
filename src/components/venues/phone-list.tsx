@@ -42,6 +42,31 @@ function sortWithin(
   });
 }
 
+export function distanceMap(
+  venues: Venue[],
+  location: LatLng | null,
+): Map<string, number> {
+  const map = new Map<string, number>();
+  if (!location) return map;
+  for (const venue of venues) {
+    map.set(
+      venue.id,
+      haversineMiles(location, { lat: venue.lat, lng: venue.lng }),
+    );
+  }
+  return map;
+}
+
+/** The list's order, shared with the map's default camera. */
+export function orderVenues(
+  venues: Venue[],
+  now: Date,
+  sort: PhoneSort,
+  distances: Map<string, number>,
+): VenueGroup[] {
+  return sortWithin(groupVenuesByStatus(venues, now), sort, distances);
+}
+
 function RowTime({
   item,
   group,
@@ -146,17 +171,13 @@ export function PhoneList({
   onPrefetch: (venue: Venue) => void;
   onClearFilters: () => void;
 }) {
-  const distances = useMemo(() => {
-    const map = new Map<string, number>();
-    if (!location) return map;
-    for (const venue of venues) {
-      map.set(venue.id, haversineMiles(location, { lat: venue.lat, lng: venue.lng }));
-    }
-    return map;
-  }, [venues, location]);
+  const distances = useMemo(
+    () => distanceMap(venues, location),
+    [venues, location],
+  );
 
   const groups = useMemo(
-    () => sortWithin(groupVenuesByStatus(venues, now), sort, distances),
+    () => orderVenues(venues, now, sort, distances),
     [venues, now, sort, distances],
   );
 

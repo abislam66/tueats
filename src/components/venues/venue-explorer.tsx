@@ -4,6 +4,7 @@ import {
   type FocusEvent as ReactFocusEvent,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
@@ -19,10 +20,19 @@ import {
 } from "@/components/venues/map-search-overlay";
 import { PhoneClock, PhoneHome } from "@/components/venues/phone-home";
 import { PhoneListHome } from "@/components/venues/phone-list-home";
+import {
+  distanceMap,
+  orderVenues,
+  type PhoneSort,
+} from "@/components/venues/phone-list";
 import { PlacesOfTheWeekPanel } from "@/components/venues/places-of-the-week-panel";
 import { VenueList } from "@/components/venues/venue-list";
 import { AnalyticsEvent } from "@/lib/analytics";
+import { useGrantedLocation } from "@/lib/geo";
 import { isOpenNow } from "@/lib/hours";
+import { FIT_VENUE_COUNT, type CameraMemory } from "@/lib/map/default-camera";
+import { useMinuteClock } from "@/lib/use-minute-clock";
+import { venuePlaceName } from "@/lib/venue-groups";
 import { DESKTOP_MEDIA_QUERY } from "@/lib/mobile-sheet-heights";
 import type { Venue } from "@/lib/venues";
 import {
@@ -31,7 +41,6 @@ import {
   filterVenues,
   parseVenueFilters,
   serializeVenueFilters,
-  venueLocationText,
 } from "@/lib/venues";
 
 type ViewMode = "map" | "places";
@@ -132,6 +141,12 @@ export function VenueExplorer({
   // Phone: list first. The map is one tap away ("Map" pill) and is not
   // even mounted until then.
   const [phoneView, setPhoneView] = useState<"list" | "map">("list");
+  const [sort, setSort] = useState<PhoneSort>("latest");
+  const location = useGrantedLocation();
+  const now = useMinuteClock();
+  // Survives the map unmounting (phone list <-> map), so reopening the map
+  // returns to wherever the visitor left it.
+  const cameraMemory = useRef<CameraMemory | null>(null);
   // On mobile, selecting a venue swaps the sheet into a preview card (no
   // room for both a browse view and a floating mini-card at once). On
   // desktop the mini-card handles the selection instead — the sheet stays
@@ -262,6 +277,23 @@ export function VenueExplorer({
     [venues, filters],
   );
   const filtersActive = query.length > 0;
+  const effectiveSort: PhoneSort =
+    sort === "nearest" && !location ? "latest" : sort;
+  // The first open venues in the list's own order drive the default camera.
+  const fitVenues = useMemo(() => {
+    const groups = orderVenues(
+      visibleVenues,
+      now,
+      effectiveSort,
+      distanceMap(visibleVenues, location),
+    );
+    return groups
+      .filter((group) => group.key === "open" || group.key === "closing")
+      .flatMap((group) => group.items.map((item) => item.venue))
+      .slice(0, FIT_VENUE_COUNT);
+  }, [visibleVenues, now, effectiveSort, location]);
+  const fitKey = `${effectiveSort}|${serializeVenueFilters({ ...filters, query: "" })}|${location ? "loc" : "noloc"}`;
+
   // A selected venue a filter now hides keeps its ring on the map; only the
   // list and cards follow the filters.
   const mapVenues = useMemo(() => {
@@ -281,7 +313,7 @@ export function VenueExplorer({
     return visibleVenues.slice(0, SEARCH_SUGGESTION_LIMIT).map((venue) => ({
       id: venue.id,
       name: venue.name,
-      location: venueLocationText(venue).text,
+      location: venuePlaceName(venue) ?? "",
     }));
   }, [showSuggestions, visibleVenues]);
   const searchNotFound = showSuggestions && visibleVenues.length === 0;
@@ -411,7 +443,10 @@ export function VenueExplorer({
               filters={filters}
               onClearFilters={clearFilters}
               onFiltersChange={setFilters}
+              location={location}
               onMap={showPhoneMap}
+              onSortChange={setSort}
+              sort={effectiveSort}
               onOpenVenue={openPlacePage}
               onPlaces={openPlaces}
               onPrefetchVenue={prefetchPlacePage}
@@ -426,8 +461,15 @@ export function VenueExplorer({
           <VenueMapLoader
             backPath={backPath}
             hoveredId={hoveredId}
+            fitKey={fitKey}
+            fitVenues={fitVenues}
+            initialCamera={cameraMemory.current}
             isSignedIn={session !== null}
             locateSlot={locateSlot}
+            onCameraSave={(camera) => {
+              cameraMemory.current = camera;
+            }}
+            userLocation={location}
             onClearSelection={() => setSelectedId(null)}
             onHover={setHoveredId}
             onSelect={selectFromMap}

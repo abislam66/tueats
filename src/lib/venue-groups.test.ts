@@ -87,7 +87,7 @@ describe("venuePlainLine", () => {
       building: address,
       mapZone: null,
     });
-    expect(noZone).toBe("American, on 1422 Cecil B. Moore Ave");
+    expect(noZone).toBe("American, on Cecil B. Moore Ave");
   });
 
   it("handles a venue with no cuisine, halal flag, building or zone", () => {
@@ -110,7 +110,7 @@ describe("locationPhrase", () => {
   it("says 'on' for streets, avenues and walks", () => {
     expect(locationPhrase(at("Cecil B. Moore Ave"))).toBe("on Cecil B. Moore Ave");
     expect(locationPhrase(at("Liacouras Walk"))).toBe("on Liacouras Walk");
-    expect(locationPhrase(at("1501 N Broad St"))).toBe("on 1501 N Broad St");
+    expect(locationPhrase(at("1501 N Broad St"))).toBe("on N Broad St");
     expect(locationPhrase(at("Oxford Rd"))).toBe("on Oxford Rd");
   });
 
@@ -118,6 +118,18 @@ describe("locationPhrase", () => {
     expect(locationPhrase(at("Avery"))).toBe("in Avery");
     expect(locationPhrase(at("Student Center"))).toBe("in Student Center");
     expect(locationPhrase(at("The Wall"))).toBe("in The Wall");
+  });
+
+  it("never shows a full address", () => {
+    const full = "Morgan Hall North, 1394 Cecil B. Moore Ave, Philadelphia, PA 19122";
+    expect(locationPhrase(at(full))).toBe("in Morgan Hall North");
+    expect(locationPhrase(at("1394 Cecil B. Moore Ave, Philadelphia, PA 19122"))).toBe(
+      "on Cecil B. Moore Ave",
+    );
+    expect(locationPhrase(at("1394 Cecil B. Moore Ave", { mapZone: "avery" }))).toBe(
+      "in Avery",
+    );
+    expect(locationPhrase(at("12345"))).toBeNull();
   });
 
   it("keeps trucks approximate and returns null with no location", () => {

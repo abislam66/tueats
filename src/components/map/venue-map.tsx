@@ -21,6 +21,7 @@ import {
 } from "@/components/map/venue-pill-layer";
 import { declutterBasemap } from "@/lib/map/basemap-declutter";
 import { applyDarkBasemap, mapStyleUrl } from "@/lib/map/map-theme";
+import { type CameraMemory, fitDefaultCamera } from "@/lib/map/default-camera";
 import { useTheme } from "@/lib/theme";
 import { OpenStatus } from "@/components/venues/venue-bits";
 import {
@@ -102,6 +103,11 @@ export function VenueMap({
   onSelectZone,
   phoneLayout = false,
   locateSlot = null,
+  initialCamera = null,
+  onCameraSave,
+  fitKey = "",
+  fitVenues = [],
+  userLocation = null,
 }: {
   venues: Venue[];
   selectedId: string | null;
@@ -120,6 +126,15 @@ export function VenueMap({
   phoneLayout?: boolean;
   /** Phone: the locate button renders here (the chip row), not in the map. */
   locateSlot?: HTMLElement | null;
+  /** Where the visitor last left the map (only set once they moved it). */
+  initialCamera?: CameraMemory | null;
+  onCameraSave?: (camera: CameraMemory) => void;
+  /** Changes when the default view should re-aim (sort / filters). */
+  fitKey?: string;
+  /** The first few open venues, in list order, for the default view. */
+  fitVenues?: Venue[];
+  /** Granted location, if any; the default view centers on it. */
+  userLocation?: { lat: number; lng: number } | null;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -130,8 +145,20 @@ export function VenueMap({
   const selectedZonesRef = useRef<MapZoneKey[]>(selectedZones);
   const theme = useTheme();
   const cameraRef = useRef<{ center: [number, number]; zoom: number } | null>(
-    null,
+    initialCamera?.userMoved
+      ? { center: initialCamera.center, zoom: initialCamera.zoom }
+      : null,
   );
+  const userMovedRef = useRef(initialCamera?.userMoved ?? false);
+  const fitMapRef = useRef<MapLibreMap | null>(null);
+  const fitVenuesRef = useRef(fitVenues);
+  const userLocationRef = useRef(userLocation);
+  const onCameraSaveRef = useRef(onCameraSave);
+  useEffect(() => {
+    fitVenuesRef.current = fitVenues;
+    userLocationRef.current = userLocation;
+    onCameraSaveRef.current = onCameraSave;
+  });
   const [map, setMap] = useState<MapLibreMap | null>(null);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -255,6 +282,14 @@ export function VenueMap({
 
       mapRef.current = instance;
 
+      // Only the visitor's own gestures carry an originalEvent; our flights
+      // don't, so they never count as "the user moved the map".
+      instance.on("movestart", (event) => {
+        if ((event as { originalEvent?: unknown }).originalEvent) {
+          userMovedRef.current = true;
+        }
+      });
+
       // A theme switch rebuilds the map; keep the camera where it was.
       if (!cameraRef.current) {
         instance.fitBounds(
@@ -319,6 +354,11 @@ export function VenueMap({
           center: [center.lng, center.lat],
           zoom: current.getZoom(),
         };
+        onCameraSaveRef.current?.({
+          center: [center.lng, center.lat],
+          zoom: current.getZoom(),
+          userMoved: userMovedRef.current,
+        });
         // Layer effects still hold this instance until the setMap(null)
         // render lands; removing it a tick later keeps their cleanups safe.
         window.setTimeout(() => current.remove(), 0);
@@ -346,6 +386,30 @@ export function VenueMap({
     };
   }, [map, theme]);
 
+  // Default view: location, else the first open venues, else the campus.
+  // Re-aims when Sort / filters change, until the visitor moves the map,
+  // picks a venue or filters to a zone (which has its own flight).
+  useEffect(() => {
+    if (!map) return;
+    const firstFit = fitMapRef.current !== map;
+    fitMapRef.current = map;
+    if (userMovedRef.current || selectedZonesRef.current.length > 0) return;
+    const pane = document.querySelector(".explorer-pane");
+    const inset = phoneLayout
+      ? { bottom: measurePhoneStackPx() ?? 0, left: 0 }
+      : {
+          bottom: 0,
+          left: pane instanceof HTMLElement ? pane.getBoundingClientRect().width : 0,
+        };
+    fitDefaultCamera(
+      map,
+      fitVenuesRef.current,
+      userLocationRef.current,
+      inset,
+      firstFit || reduceMotion ? 0 : 450,
+    );
+  }, [map, fitKey, phoneLayout, reduceMotion]);
+
   useEffect(() => {
     if (!map) return;
     const resize = () => map.resize();
@@ -356,6 +420,8 @@ export function VenueMap({
 
   useEffect(() => {
     if (!map || !selectedVenue) return;
+    // Picking a venue is the visitor taking the camera.
+    userMovedRef.current = true;
     const hostZone = mapZoneContaining(selectedVenue.lng, selectedVenue.lat);
     if (
       !phoneLayout &&
@@ -502,6 +568,7 @@ export function VenueMap({
 
   function zoomBy(delta: number) {
     if (!map) return;
+    userMovedRef.current = true;
     map.easeTo({
       zoom: map.getZoom() + delta,
       duration: reduceMotion ? 0 : 220,
@@ -510,6 +577,7 @@ export function VenueMap({
 
   function resetView() {
     if (!map) return;
+    userMovedRef.current = true;
     onSelectZone(null);
     onClearSelection();
     map.fitBounds(

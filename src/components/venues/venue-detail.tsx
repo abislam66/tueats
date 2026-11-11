@@ -22,7 +22,7 @@ import {
 } from "@/lib/hours";
 import { googleMapsDirectionsUrl } from "@/lib/maps";
 import { venuePlainLine } from "@/lib/venue-groups";
-import { venueLocationText, type Venue } from "@/lib/venues";
+import type { Venue } from "@/lib/venues";
 
 const DAY_LABELS = {
   mon: "Monday",
@@ -180,7 +180,7 @@ export function VenueDetail({
         timeZone: "UTC",
       }).format(new Date(`${venue.lastVerifiedAt}T12:00:00Z`))
     : null;
-  const line = venuePlainLine(venue) || venueLocationText(venue).text;
+  const line = venuePlainLine(venue);
   const canWrite = venue.status !== "retired";
   const retired = venue.status === "retired";
 
@@ -224,7 +224,7 @@ export function VenueDetail({
 
         <header className="detail-hero">
           <h1>{venue.name}</h1>
-          <p className="detail-line">{line}</p>
+          {line ? <p className="detail-line">{line}</p> : null}
           {venue.acceptsCard === false || venue.isHalal ? (
             <div className="detail-tags">
               <PaymentTag card={venue.acceptsCard} />

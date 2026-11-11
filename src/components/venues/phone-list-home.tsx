@@ -16,7 +16,7 @@ import {
   type PhoneSort,
 } from "@/components/venues/phone-list";
 import { AnalyticsEvent } from "@/lib/analytics";
-import { useGrantedLocation } from "@/lib/geo";
+import type { LatLng } from "@/lib/geo";
 import { isOpenNow } from "@/lib/hours";
 import { useMinuteClock } from "@/lib/use-minute-clock";
 import { filterVenues, type Venue, type VenueFilters } from "@/lib/venues";
@@ -24,6 +24,25 @@ import { filterVenues, type Venue, type VenueFilters } from "@/lib/venues";
 type MenuKey = "cuisine" | "zone" | "sort";
 
 const SORT_ORDER: PhoneSort[] = ["nearest", "closing", "latest"];
+
+function CheckIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="pl-check"
+      fill="none"
+      height="14"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2.4"
+      viewBox="0 0 14 14"
+      width="14"
+    >
+      <path d="m2.5 7.5 3 3 6-7" />
+    </svg>
+  );
+}
 
 function toggle<T extends string>(values: T[], value: T): T[] {
   return values.includes(value)
@@ -45,6 +64,9 @@ export function PhoneListHome({
   onPrefetchVenue,
   onMap,
   onPlaces,
+  sort,
+  onSortChange,
+  location,
 }: {
   venues: Venue[];
   visibleVenues: Venue[];
@@ -55,11 +77,12 @@ export function PhoneListHome({
   onPrefetchVenue: (venue: Venue) => void;
   onMap: () => void;
   onPlaces: () => void;
+  sort: PhoneSort;
+  onSortChange: (sort: PhoneSort) => void;
+  location: LatLng | null;
 }) {
   const now = useMinuteClock();
   const posthog = usePostHog();
-  const location = useGrantedLocation();
-  const [sort, setSort] = useState<PhoneSort>("latest");
   const [openMenu, setOpenMenu] = useState<MenuKey | null>(null);
 
   const effectiveSort: PhoneSort =
@@ -157,7 +180,7 @@ export function PhoneListHome({
             suppressHydrationWarning
             type="button"
           >
-            Open now · {openNowCount}
+            Open now {filters.openNow ? <CheckIcon /> : null}· {openNowCount}
           </button>
           <button
             aria-pressed={filters.isHalal}
@@ -165,7 +188,7 @@ export function PhoneListHome({
             onClick={() => toggleBoolean("isHalal")}
             type="button"
           >
-            Halal
+            Halal {filters.isHalal ? <CheckIcon /> : null}
           </button>
           <button
             aria-expanded={openMenu === "cuisine"}
@@ -173,7 +196,8 @@ export function PhoneListHome({
             onClick={() => menuChip("cuisine")}
             type="button"
           >
-            Cuisine{filters.cuisines.length ? ` · ${filters.cuisines.length}` : ""}
+            Cuisine {filters.cuisines.length ? <CheckIcon /> : null}
+            {filters.cuisines.length ? `· ${filters.cuisines.length}` : ""}
           </button>
           <button
             aria-expanded={openMenu === "zone"}
@@ -181,7 +205,8 @@ export function PhoneListHome({
             onClick={() => menuChip("zone")}
             type="button"
           >
-            Zone{filters.zones.length ? ` · ${filters.zones.length}` : ""}
+            Zone {filters.zones.length ? <CheckIcon /> : null}
+            {filters.zones.length ? `· ${filters.zones.length}` : ""}
           </button>
           <button
             aria-expanded={openMenu === "sort"}
@@ -189,7 +214,7 @@ export function PhoneListHome({
             onClick={() => menuChip("sort")}
             type="button"
           >
-            Sort
+            Sort: {PHONE_SORT_LABELS[effectiveSort]}
           </button>
         </div>
 
@@ -235,7 +260,7 @@ export function PhoneListHome({
                     className={chip(effectiveSort === key)}
                     disabled={disabled}
                     key={key}
-                    onClick={() => setSort(key)}
+                    onClick={() => onSortChange(key)}
                     type="button"
                   >
                     {PHONE_SORT_LABELS[key]}

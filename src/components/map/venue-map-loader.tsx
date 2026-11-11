@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 
 import type { MapZoneKey } from "@/config/map-zones";
+import type { CameraMemory } from "@/lib/map/default-camera";
 import type { Venue } from "@/lib/venues";
 
 function MapLoadingShell() {
@@ -36,6 +37,11 @@ export function VenueMapLoader({
   onSelectZone,
   phoneLayout,
   locateSlot,
+  initialCamera,
+  onCameraSave,
+  fitKey,
+  fitVenues,
+  userLocation,
 }: {
   venues: Venue[];
   selectedId: string | null;
@@ -50,6 +56,11 @@ export function VenueMapLoader({
   onSelectZone: (key: MapZoneKey | null) => void;
   phoneLayout?: boolean;
   locateSlot?: HTMLElement | null;
+  initialCamera?: CameraMemory | null;
+  onCameraSave?: (camera: CameraMemory) => void;
+  fitKey?: string;
+  fitVenues?: Venue[];
+  userLocation?: { lat: number; lng: number } | null;
 }) {
   return (
     <VenueMap
@@ -60,7 +71,12 @@ export function VenueMapLoader({
       onHover={onHover}
       onSelect={onSelect}
       onSelectZone={onSelectZone}
+      fitKey={fitKey}
+      fitVenues={fitVenues}
+      initialCamera={initialCamera}
       locateSlot={locateSlot}
+      onCameraSave={onCameraSave}
+      userLocation={userLocation}
       phoneLayout={phoneLayout}
       selectedId={selectedId}
       selectedZones={selectedZones}

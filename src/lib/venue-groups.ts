@@ -113,19 +113,21 @@ function joinAnd(parts: string[]): string {
 /**
  * Short place name for the plain-words line. `building` is whatever an
  * admin typed: a landmark ("Morgan Hall North") reads fine as-is, but a
- * street address ("1422 Cecil B. Moore Ave, Philadelphia, PA 19121") is
- * too long, so prefer the zone name and fall back to the street alone.
+ * street address ("1422 Cecil B. Moore Ave, Philadelphia, PA 19121") never
+ * shows. A landmark ahead of an address ("Morgan Hall North, 1394 Cecil B.
+ * Moore Ave, ...") keeps just the landmark; a bare address becomes the zone
+ * name, or the street with its house number dropped.
  */
 export function venuePlaceName(venue: Venue): string | null {
   const zone =
     venue.mapZone && venue.mapZone !== OTHER_MAP_ZONE
       ? MAP_ZONES[venue.mapZone].label
       : null;
-  const building = venue.building?.trim() || null;
-  if (building && /^\d/.test(building)) {
-    return zone ?? building.split(",")[0]!.trim();
-  }
-  return building ?? zone;
+  const first = venue.building?.split(",")[0]?.trim() || null;
+  if (!first) return zone;
+  if (!/\d/.test(first)) return first;
+  const street = first.replace(/^\d+[A-Za-z]?\s+/, "").trim();
+  return zone ?? (street && !/\d/.test(street) ? street : null);
 }
 
 const STREET_WORD = /\b(Street|St|Ave|Avenue|Walk|Blvd|Road|Rd)\b/i;

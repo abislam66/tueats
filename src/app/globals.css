@@ -4076,3 +4076,26 @@ html {
 .status-card-secondary .report-success {
   flex: 1 0 100%;
 }
+
+/* List-first fixes: checked chips, balanced names, pill-safe bottom. */
+.pl-chip {
+  gap: 4px;
+}
+
+.pl-check {
+  flex: 0 0 auto;
+}
+
+.venue-row-name,
+.pl-name,
+.detail-hero h1 {
+  text-wrap: balance;
+}
+
+.pl-scroll {
+  padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+}
+
+.pl-places {
+  padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+}
