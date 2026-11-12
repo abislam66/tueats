@@ -371,6 +371,14 @@ export function VenueExplorer({
     [visibleVenues, viewport],
   );
 
+  // The selected venue is always in the list (pinned first by the list),
+  // even when it is off screen; the rest follow the on-screen set.
+  const listVenues = useMemo(() => {
+    const base = showAll ? visibleVenues : viewVenues;
+    const selected = venues.find((venue) => venue.id === selectedId);
+    return selected && !base.includes(selected) ? [...base, selected] : base;
+  }, [showAll, visibleVenues, viewVenues, venues, selectedId]);
+
   const trimmedQuery = filters.query.trim();
   const showSuggestions = searchFocused && trimmedQuery.length > 0;
   // Suggestions are just the already-filtered visible set (name + cuisine
@@ -467,7 +475,7 @@ export function VenueExplorer({
         onToggleAll={() => setShowAll((value) => !value)}
         showAll={showAll}
         totalCount={visibleVenues.length}
-        venues={showAll ? visibleVenues : viewVenues}
+        venues={listVenues}
       />
     );
 

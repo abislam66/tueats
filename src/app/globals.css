@@ -4364,3 +4364,48 @@ html {
   flex: 0 0 auto;
   margin-top: var(--spacing-sm);
 }
+
+/* ---- Selected-first + name colors ----
+   Names use the accent token: cherry #9D2235 in light, #F29AA8 in dark. */
+.pl-name,
+.phone-card-name,
+.map-mini-card-name,
+.detail-hero h1 {
+  color: var(--color-accent);
+}
+
+.phone-card-close {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Light popup: the name sits on a solid cherry band with white text. The
+   phone's selected card is the popup there. Dark keeps the accent-pink name
+   on the dark surface. */
+:root:not([data-theme="dark"]) .map-mini-card-name {
+  margin: calc(var(--spacing-md) * -1) calc(var(--spacing-md) * -1) 0.25rem;
+  padding: var(--spacing-md) 2.75rem var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: #9d2235;
+  color: #ffffff;
+}
+
+:root:not([data-theme="dark"]) .phone-card-selected .phone-card-name {
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 2px 8px;
+  border-radius: var(--radius-md);
+  background: #9d2235;
+  color: #ffffff;
+}
+
+:root:not([data-theme="dark"]) .map-mini-card-close {
+  color: #ffffff;
+}

@@ -214,6 +214,8 @@ Maps to `Specs/architecture-planning.md`:
 
 ## Decisions Log
 
+| 2026-11-12 | Selected venue pinned first; selection never sets filters; name colors | Selecting a venue (pin, card, row, search) no longer sets the zone filter on desktop either; the zone chip stays as the visitor set it. The selected venue renders first in the phone carousel and the desktop list (kept while selected, even if off screen), the rest keep sort order and the map-view rule. Venue names (rows, card titles, popup, place page) use `--color-accent`: cherry #9D2235 light, #F29AA8 dark. |
+| 2026-11-12 | Carousel selects on tap only; selected pin enlarged; light popup uses cherry | Tapping a card selects, flies the map and opens the popup; tapping the selected card again (or the popup close) clears it. The selected plate draws at 1.25x. Light-mode popup name is white on a solid cherry #9D2235 band (phone: the selected card's name chip); dark popup unchanged. |
 | 2026-11-11 | Light pins are cherry; "until" times are ink | Light theme: open = solid cherry plate with white text, closing = white plate with a 2px cherry border, closed = muted, unknown = dashed. Green `--open-fg` no longer marks pins in light (dark keeps amber, shared via `--pin-open` for the legend). The list/card "until" time is ink in both themes. |
 | 2026-11-11 | Map view drives the visible set | Pan/zoom is the filter people actually use on a map: pins, phone cards and the desktop list show what is on screen (desktop can "Show all N places"). Selected venue is always kept. |
 | 2026-11-11 | Card selection is tap-only | Swipe-to-select moved the map while people were just browsing cards. Only a tap selects (popup on desktop, preview card on phone). |

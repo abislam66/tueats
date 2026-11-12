@@ -449,17 +449,8 @@ export function VenueMap({
     if (!map || !selectedVenue) return;
     // Picking a venue is the visitor taking the camera.
     userMovedRef.current = true;
-    const hostZone = mapZoneContaining(selectedVenue.lng, selectedVenue.lat);
-    if (
-      !phoneLayout &&
-      hostZone &&
-      !selectedZonesRef.current.includes(hostZone)
-    ) {
-      onSelectZoneRef.current(hostZone);
-      return;
-    }
-    // No host zone to fly into: go to the truck itself — center it and
-    // come down to street zoom if the map is still zoomed out.
+    // Selection never touches the filters: just fly to the venue — center it
+    // and come down to street zoom if the map is still zoomed out.
     const position: [number, number] = [selectedVenue.lng, selectedVenue.lat];
     const desktop = window.matchMedia(DESKTOP_MEDIA_QUERY).matches;
     if (
@@ -490,7 +481,7 @@ export function VenueMap({
       },
       duration: reduceMotion ? 0 : 650,
     });
-  }, [map, selectedVenue, reduceMotion, phoneLayout]);
+  }, [map, selectedVenue, reduceMotion]);
 
   // The mini-card tracks the selected pin: its anchor's left/top are
   // written directly (no re-render) from the pin's projected screen point
@@ -559,8 +550,6 @@ export function VenueMap({
       setPoppedVenueId(null);
       return;
     }
-    const hostZone = mapZoneContaining(selectedVenue.lng, selectedVenue.lat);
-    if (hostZone && !selectedZones.includes(hostZone)) return;
     if (map.isMoving()) {
       const pop = () => setPoppedVenueId(selectedVenue.id);
       map.once("moveend", pop);
@@ -569,7 +558,7 @@ export function VenueMap({
       };
     }
     setPoppedVenueId(selectedVenue.id);
-  }, [map, selectedVenue, selectedZones]);
+  }, [map, selectedVenue]);
 
   useEffect(() => {
     if (!map) return;

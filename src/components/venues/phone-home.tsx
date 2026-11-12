@@ -92,7 +92,7 @@ export function PhoneHome({
   onClearFilters: () => void;
   selectedId: string | null;
   backPath: string;
-  onSelectCard: (venueId: string) => void;
+  onSelectCard: (venueId: string | null) => void;
   onPickSearch: (venueId: string) => void;
   onSeeAll: () => void;
   locateSlotRef: (node: HTMLDivElement | null) => void;
@@ -129,17 +129,20 @@ export function PhoneHome({
       sort,
       distanceMap(viewVenues, location),
     ).flatMap((group) => group.items.map((item) => toCard(item, group.key)));
-    const shown = all.slice(0, CARD_LIMIT);
-    // A pin tapped beyond the first 20, or panned off screen, keeps its card.
-    if (selectedId && !shown.some((item) => item.venue.id === selectedId)) {
+    // The selected venue goes first, even when it is off screen or beyond
+    // the first 20; everyone else keeps the sort order.
+    const rest = all.filter((item) => item.venue.id !== selectedId);
+    let first = all.find((item) => item.venue.id === selectedId);
+    if (selectedId && !first) {
       const venue = venues.find((entry) => entry.id === selectedId);
       if (venue) {
         const [group] = sortVenues([venue], now, sort, new Map());
         const item = group?.items[0];
-        if (item && group) shown.push(toCard(item, group.key));
+        if (item && group) first = toCard(item, group.key);
       }
     }
-    return shown;
+    const shown = rest.slice(0, CARD_LIMIT);
+    return first ? [first, ...shown] : shown;
   }, [viewVenues, venues, now, sort, location, selectedId]);
 
   // Keep the stack (and the suggestions) above the on-screen keyboard.

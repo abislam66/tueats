@@ -432,6 +432,8 @@ export function VenuePillLayer({
           // Sprites already carry a transparent margin around the plate,
           // so collision boxes keep a few px between neighbours.
           "icon-padding": 0,
+          // The selected plate (priority 0) is drawn 1.25x larger.
+          "icon-size": ["case", ["==", ["get", "priority"], 0], 1.25, 1],
           "icon-anchor": ["get", "anchor"],
           "icon-offset": ["get", "offset"],
           "icon-allow-overlap": false,

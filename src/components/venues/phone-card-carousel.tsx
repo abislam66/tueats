@@ -69,7 +69,7 @@ export function PhoneCardCarousel({
   items: PhoneCardItem[];
   selectedId: string | null;
   backPath: string;
-  onSelect: (venueId: string) => void;
+  onSelect: (venueId: string | null) => void;
   onClearFilters: () => void;
 }) {
   const scrollerRef = useRef<HTMLUListElement>(null);
@@ -164,7 +164,14 @@ export function PhoneCardCarousel({
           >
             {selected ? (
               <div aria-current="true" className="phone-card phone-card-selected">
-                <CardBody item={item} />
+                <button
+                  aria-label={`Close ${venue.name}`}
+                  className="phone-card-close"
+                  onClick={() => onSelect(null)}
+                  type="button"
+                >
+                  <CardBody item={item} />
+                </button>
                 <span className="phone-card-actions">
                   <a
                     className="button button-primary"

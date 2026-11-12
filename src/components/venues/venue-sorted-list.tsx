@@ -169,12 +169,29 @@ export function SortedVenueList({
     () => distanceMap(venues, location),
     [venues, location],
   );
+  // The selected venue is pinned first; the rest keep their sorted order.
+  const pinned = useMemo(() => {
+    const venue = selectedId
+      ? venues.find((entry) => entry.id === selectedId)
+      : undefined;
+    if (!venue) return null;
+    const [group] = sortVenues([venue], now, sort, distances);
+    const item = group?.items[0];
+    return group && item ? { group, item } : null;
+  }, [venues, selectedId, now, sort, distances]);
   const groups = useMemo(
-    () => sortVenues(venues, now, sort, distances, { includeClosed }),
-    [venues, now, sort, distances, includeClosed],
+    () =>
+      sortVenues(
+        pinned ? venues.filter((v) => v.id !== pinned.item.venue.id) : venues,
+        now,
+        sort,
+        distances,
+        { includeClosed },
+      ),
+    [venues, pinned, now, sort, distances, includeClosed],
   );
 
-  if (groups.length === 0) {
+  if (groups.length === 0 && !pinned) {
     return (
       <div className="pl-empty">
         <p className="pl-empty-title">Nothing open matches.</p>
@@ -191,6 +208,26 @@ export function SortedVenueList({
 
   return (
     <div className="pl-groups">
+      {pinned ? (
+        <section aria-label="Selected place">
+          <ul className="pl-rows">
+            <Row
+              group={pinned.group}
+              highlighted={false}
+              item={pinned.item}
+              miles={
+                sort === "nearest"
+                  ? (distances.get(pinned.item.venue.id) ?? null)
+                  : null
+              }
+              onHover={onHover}
+              onOpen={onOpen}
+              onPrefetch={onPrefetch}
+              selected
+            />
+          </ul>
+        </section>
+      ) : null}
       {groups.map((group) => (
         <section aria-label={group.title} key={group.key}>
           <h2 className="pl-group-title">{group.title}</h2>
