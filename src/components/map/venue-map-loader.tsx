@@ -1,5 +1,6 @@
 "use client";
 
+import type { ViewportBounds } from "@/lib/map/viewport";
 import dynamic from "next/dynamic";
 
 import type { MapZoneKey } from "@/config/map-zones";
@@ -42,6 +43,7 @@ export function VenueMapLoader({
   fitKey,
   fitVenues,
   userLocation,
+  onViewportChange,
 }: {
   venues: Venue[];
   selectedId: string | null;
@@ -61,6 +63,7 @@ export function VenueMapLoader({
   fitKey?: string;
   fitVenues?: Venue[];
   userLocation?: { lat: number; lng: number } | null;
+  onViewportChange?: (bounds: ViewportBounds) => void;
 }) {
   return (
     <VenueMap
@@ -76,6 +79,7 @@ export function VenueMapLoader({
       initialCamera={initialCamera}
       locateSlot={locateSlot}
       onCameraSave={onCameraSave}
+      onViewportChange={onViewportChange}
       userLocation={userLocation}
       phoneLayout={phoneLayout}
       selectedId={selectedId}

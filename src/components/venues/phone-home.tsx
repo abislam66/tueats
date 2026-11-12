@@ -20,7 +20,15 @@ import {
 } from "@/components/venues/phone-search";
 import { AnalyticsEvent } from "@/lib/analytics";
 import { useMinuteClock } from "@/lib/use-minute-clock";
-import { groupVenuesByStatus } from "@/lib/venue-groups";
+import { CLOSING_SOON_MINUTES } from "@/lib/hours";
+import type { LatLng } from "@/lib/geo";
+import {
+  sortVenues,
+  type SortBand,
+  type SortedItem,
+  type VenueSort,
+} from "@/lib/venue-sort";
+import { distanceMap } from "@/components/venues/venue-sorted-list";
 import type { Venue, VenueFilters } from "@/lib/venues";
 
 const CARD_LIMIT = 20;
@@ -60,6 +68,9 @@ export function PhoneClock() {
 export function PhoneHome({
   venues,
   visibleVenues,
+  viewVenues,
+  sort,
+  location,
   filters,
   onFiltersChange,
   onClearFilters,
@@ -72,12 +83,16 @@ export function PhoneHome({
 }: {
   venues: Venue[];
   visibleVenues: Venue[];
+  /** Filtered venues inside the map's visible box. */
+  viewVenues: Venue[];
+  sort: VenueSort;
+  location: LatLng | null;
   filters: VenueFilters;
   onFiltersChange: (filters: VenueFilters) => void;
   onClearFilters: () => void;
   selectedId: string | null;
   backPath: string;
-  onSelectCard: (venueId: string) => void;
+  onSelectCard: (venueId: string | null) => void;
   onPickSearch: (venueId: string) => void;
   onSeeAll: () => void;
   locateSlotRef: (node: HTMLDivElement | null) => void;
@@ -91,25 +106,44 @@ export function PhoneHome({
   );
   const [openMenu, setOpenMenu] = useState<MenuKey | null>(null);
 
-  const groups = useMemo(
-    () => groupVenuesByStatus(visibleVenues, now),
-    [visibleVenues, now],
-  );
-  const openCount = groups
-    .filter((group) => group.key === "open" || group.key === "closing")
-    .reduce((sum, group) => sum + group.items.length, 0);
+  // The cards are the venues on screen (the map drives the set), in the
+  // list's current sort order.
   const cards = useMemo<PhoneCardItem[]>(() => {
-    const all = groups.flatMap((group) =>
-      group.items.map((item) => ({ ...item, group: group.key })),
-    );
-    const shown = all.slice(0, CARD_LIMIT);
-    // A pin tapped beyond the first 20 still gets its card.
-    if (selectedId && !shown.some((item) => item.venue.id === selectedId)) {
-      const selected = all.find((item) => item.venue.id === selectedId);
-      if (selected) shown.push(selected);
+    const toCard = (item: SortedItem, key: SortBand): PhoneCardItem => ({
+      venue: item.venue,
+      minutesLeft: item.minutesLeft,
+      time: item.closesAt,
+      opensDayOffset: null,
+      group:
+        item.minutesLeft === null
+          ? key === "unknown"
+            ? "unknown"
+            : "later"
+          : item.minutesLeft < CLOSING_SOON_MINUTES
+            ? "closing"
+            : "open",
+    });
+    const all = sortVenues(
+      viewVenues,
+      now,
+      sort,
+      distanceMap(viewVenues, location),
+    ).flatMap((group) => group.items.map((item) => toCard(item, group.key)));
+    // The selected venue goes first, even when it is off screen or beyond
+    // the first 20; everyone else keeps the sort order.
+    const rest = all.filter((item) => item.venue.id !== selectedId);
+    let first = all.find((item) => item.venue.id === selectedId);
+    if (selectedId && !first) {
+      const venue = venues.find((entry) => entry.id === selectedId);
+      if (venue) {
+        const [group] = sortVenues([venue], now, sort, new Map());
+        const item = group?.items[0];
+        if (item && group) first = toCard(item, group.key);
+      }
     }
-    return shown;
-  }, [groups, selectedId]);
+    const shown = rest.slice(0, CARD_LIMIT);
+    return first ? [first, ...shown] : shown;
+  }, [viewVenues, venues, now, sort, location, selectedId]);
 
   // Keep the stack (and the suggestions) above the on-screen keyboard.
   useEffect(() => {
@@ -311,9 +345,7 @@ export function PhoneHome({
             />
           )}
           <button className="phone-see-all" onClick={onSeeAll} type="button">
-            {openCount > 0
-              ? `See all ${openCount} open ${openCount === 1 ? "place" : "places"}`
-              : `See all ${visibleVenues.length} ${visibleVenues.length === 1 ? "place" : "places"}`}
+            {`See all ${visibleVenues.length} ${visibleVenues.length === 1 ? "place" : "places"}`}
           </button>
         </>
       )}

@@ -1,5 +1,6 @@
 "use client";
 
+import type { ViewportBounds } from "@/lib/map/viewport";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -108,6 +109,7 @@ export function VenueMap({
   fitKey = "",
   fitVenues = [],
   userLocation = null,
+  onViewportChange,
 }: {
   venues: Venue[];
   selectedId: string | null;
@@ -133,6 +135,8 @@ export function VenueMap({
   fitKey?: string;
   /** The first few open venues, in list order, for the default view. */
   fitVenues?: Venue[];
+  /** The visible box, on load and after every move settles. */
+  onViewportChange?: (bounds: ViewportBounds) => void;
   /** Granted location, if any; the default view centers on it. */
   userLocation?: { lat: number; lng: number } | null;
 }) {
@@ -154,7 +158,9 @@ export function VenueMap({
   const fitVenuesRef = useRef(fitVenues);
   const userLocationRef = useRef(userLocation);
   const onCameraSaveRef = useRef(onCameraSave);
+  const onViewportChangeRef = useRef(onViewportChange);
   useEffect(() => {
+    onViewportChangeRef.current = onViewportChange;
     fitVenuesRef.current = fitVenues;
     userLocationRef.current = userLocation;
     onCameraSaveRef.current = onCameraSave;
@@ -198,7 +204,9 @@ export function VenueMap({
   // Pills render whenever pins are visible (venues are already filtered to
   // any active zone selection); a selected venue outside every zone still
   // gets its own pill so the mini-card never floats bare.
-  const pinVenues = pinsVisible ? venues : selectedVenue ? [selectedVenue] : [];
+  // Pins are always drawn; pinDensity() thins them out when zoomed out
+  // (open only, at most 12) so they sit lightly over the zone badges.
+  const pinVenues = venues;
   const [isDesktop, setIsDesktop] = useState(() =>
     typeof window === "undefined"
       ? false
@@ -214,6 +222,25 @@ export function VenueMap({
     media.addEventListener("change", sync);
     return () => media.removeEventListener("change", sync);
   }, []);
+
+  useEffect(() => {
+    if (!map) return;
+    function report() {
+      if (!map) return;
+      const box = map.getBounds();
+      onViewportChangeRef.current?.({
+        west: box.getWest(),
+        south: box.getSouth(),
+        east: box.getEast(),
+        north: box.getNorth(),
+      });
+    }
+    report();
+    map.on("moveend", report);
+    return () => {
+      map.off("moveend", report);
+    };
+  }, [map]);
 
   useEffect(() => {
     if (!map) return;
@@ -422,17 +449,8 @@ export function VenueMap({
     if (!map || !selectedVenue) return;
     // Picking a venue is the visitor taking the camera.
     userMovedRef.current = true;
-    const hostZone = mapZoneContaining(selectedVenue.lng, selectedVenue.lat);
-    if (
-      !phoneLayout &&
-      hostZone &&
-      !selectedZonesRef.current.includes(hostZone)
-    ) {
-      onSelectZoneRef.current(hostZone);
-      return;
-    }
-    // No host zone to fly into: go to the truck itself — center it and
-    // come down to street zoom if the map is still zoomed out.
+    // Selection never touches the filters: just fly to the venue — center it
+    // and come down to street zoom if the map is still zoomed out.
     const position: [number, number] = [selectedVenue.lng, selectedVenue.lat];
     const desktop = window.matchMedia(DESKTOP_MEDIA_QUERY).matches;
     if (
@@ -463,7 +481,7 @@ export function VenueMap({
       },
       duration: reduceMotion ? 0 : 650,
     });
-  }, [map, selectedVenue, reduceMotion, phoneLayout]);
+  }, [map, selectedVenue, reduceMotion]);
 
   // The mini-card tracks the selected pin: its anchor's left/top are
   // written directly (no re-render) from the pin's projected screen point
@@ -532,8 +550,6 @@ export function VenueMap({
       setPoppedVenueId(null);
       return;
     }
-    const hostZone = mapZoneContaining(selectedVenue.lng, selectedVenue.lat);
-    if (hostZone && !selectedZones.includes(hostZone)) return;
     if (map.isMoving()) {
       const pop = () => setPoppedVenueId(selectedVenue.id);
       map.once("moveend", pop);
@@ -542,7 +558,7 @@ export function VenueMap({
       };
     }
     setPoppedVenueId(selectedVenue.id);
-  }, [map, selectedVenue, selectedZones]);
+  }, [map, selectedVenue]);
 
   useEffect(() => {
     if (!map) return;

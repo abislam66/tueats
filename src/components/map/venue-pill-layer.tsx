@@ -20,6 +20,8 @@ import {
 } from "@/lib/map/venue-pill-icon";
 import {
   ALL_PLATES_MIN_ZOOM,
+  MAX_OVERVIEW_PINS,
+  pinDensity,
   bestStatus,
   clusterPriority,
   pinPriority,
@@ -148,12 +150,19 @@ function buildRenderUnits(
   hoveredClusterKey: string | null,
   now: Date,
 ): RenderUnit[] {
-  const lowZoom = map.getZoom() < ALL_PLATES_MIN_ZOOM;
+  const density = pinDensity(map.getZoom());
+  const lowZoom = density !== "all-plates";
+  const bounds = map.getBounds();
   const units: RenderUnit[] = [];
   const clusterable: { venue: Venue; status: VenuePillStatus }[] = [];
   for (const venue of venues) {
     const status = getPinStatus(venue.hours, now);
     const state = pillState(venue, selectedId, hoveredId);
+    if (density === "open-only" && state === "normal") {
+      // Overview: open venues on screen only; closed ones are hidden.
+      if (!showsPlateAtOverview(status, state)) continue;
+      if (!bounds.contains([venue.lng, venue.lat])) continue;
+    }
     if (
       state !== "normal" ||
       (lowZoom && !showsPlateAtOverview(status, state))
@@ -204,7 +213,20 @@ function buildRenderUnits(
     });
   }
 
+  if (density === "open-only") return capOverviewUnits(units);
   return units;
+}
+
+/** Overview keeps the 12 best pins (selected, hovered, open first). */
+function capOverviewUnits(units: RenderUnit[]): RenderUnit[] {
+  if (units.length <= MAX_OVERVIEW_PINS) return units;
+  const rank = (unit: RenderUnit) =>
+    unit.kind === "venue"
+      ? pinPriority(unit.status, unit.state)
+      : clusterPriority(unit.status);
+  return [...units]
+    .sort((a, b) => rank(a) - rank(b))
+    .slice(0, MAX_OVERVIEW_PINS);
 }
 
 function unitIconId(unit: RenderUnit): string {
@@ -410,6 +432,8 @@ export function VenuePillLayer({
           // Sprites already carry a transparent margin around the plate,
           // so collision boxes keep a few px between neighbours.
           "icon-padding": 0,
+          // The selected plate (priority 0) is drawn 1.25x larger.
+          "icon-size": ["case", ["==", ["get", "priority"], 0], 1.25, 1],
           "icon-anchor": ["get", "anchor"],
           "icon-offset": ["get", "offset"],
           "icon-allow-overlap": false,
@@ -586,7 +610,15 @@ export function VenuePillLayer({
         map.addImage(iconId, asset, { pixelRatio: asset.pixelRatio });
       }
 
-      const dots = toDotCollection(venues, now);
+      // Overview (zoom < 15) shows only the pins that survived the cap, so
+      // dots follow the units instead of every venue.
+      const dotVenues =
+        pinDensity(map.getZoom()) === "open-only"
+          ? units.flatMap((unit) =>
+              unit.kind === "venue" ? [unit.venue] : unit.members,
+            )
+          : venues;
+      const dots = toDotCollection(dotVenues, now);
       for (const feature of dots.features) {
         const { iconId, status } = feature.properties;
         if (map.hasImage(iconId)) continue;

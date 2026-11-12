@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   bestStatus,
   clusterPriority,
+  pinDensity,
   pinPriority,
   showsPlateAtOverview,
   truncateLabel,
@@ -62,5 +63,14 @@ describe("bestStatus", () => {
   it("picks the most useful member status", () => {
     expect(bestStatus(["closed", "closing", "unknown"])).toBe("closing");
     expect(bestStatus(["unknown"])).toBe("unknown");
+  });
+});
+
+describe("pinDensity", () => {
+  it("steps overview, open plates, all plates at zoom 15 and 16", () => {
+    expect(pinDensity(14.9)).toBe("open-only");
+    expect(pinDensity(15)).toBe("open-plates");
+    expect(pinDensity(15.9)).toBe("open-plates");
+    expect(pinDensity(16)).toBe("all-plates");
   });
 });
